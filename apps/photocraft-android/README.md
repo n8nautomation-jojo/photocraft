@@ -29,11 +29,18 @@ The Android host now has a first SAF Open/Save bridge:
 - Save As uses ACTION_CREATE_DOCUMENT and writes through ContentResolver on a background worker.
 - Content URIs are never passed to PhotoCraft as if they were ordinary filesystem paths.
 
-The folder picker and Android clipboard are not connected yet. The SAF code is a first integration
-slice and has not been compiled or tested against real document providers. Provider permission
-policies differ, so an unavailable persistent grant or failed provider write is reported as a
-save error rather than silently marking the document saved. Lifecycle-specific pause/low-memory
-recovery handling, tablet/phone layout adaptation and device validation remain open tasks.
+The Android Activity now forwards pause/resume transitions to the Rust event loop. On pause, the
+Rust UI loop requests a recovery snapshot of every dirty document through the existing
+RecoveryStore/flush path; the Activity callback only queues the event and wakes the native looper,
+so it does not perform encoding or filesystem work on Android's UI thread. Resume requests a fresh
+egui frame. This is a best-effort checkpoint request, not a guarantee against immediate process
+termination: it still needs real-device verification.
+
+The folder picker and Android clipboard are not connected yet. The SAF and lifecycle bridges have
+not been compiled or tested on a device. Provider permission policies differ, so an unavailable
+persistent grant or failed provider write is reported as a save error rather than silently marking
+the document saved. Stop/low-memory/thermal/device-loss handling, tablet/phone layout adaptation,
+and process-death/force-stop validation remain open tasks.
 
 ## Toolchain
 
@@ -78,8 +85,8 @@ ignored by Git. They must remain local build artifacts.
 2. Compile and test SAF Open/Save against Android's system provider and at least one cloud-backed
    document provider, including cancellation, multi-select, persisted grants and write failures.
 3. Add the Android folder picker and clipboard bridge and test image/text clipboard round trips.
-4. Wire pause, stop, low-memory and device-loss lifecycle signals to recovery flushing, and test
-   force-stop/process death and app switching.
+4. Validate pause/resume recovery on a real device, then add stop, low-memory, thermal and
+   device-loss handling plus process-death/force-stop and app-switching tests.
 5. Measure native memory with a 12 MP image and 10 layers on a real Android device; validate the
    configured GPU budget against actual device RAM.
 6. Verify mouse primary/secondary, hover, stylus, keyboard shortcuts, Space+drag and wheel input on
