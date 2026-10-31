@@ -48,6 +48,17 @@ fn kept(doc: &Arc<Document>, bytes: usize) -> Kept {
 }
 
 #[test]
+fn memory_pressure_clears_kept_composite_cache_and_accounting() {
+    let mut cache = KeptComposites::default();
+    cache.capped = (vec![(photocraft_doc::DocId(7), 12)], 4096);
+
+    cache.clear();
+
+    assert!(cache.entries.is_empty());
+    assert_eq!(cache.capped, (Vec::new(), 0));
+}
+
+#[test]
 fn kept_composites_come_back_only_for_the_exact_state_and_stay_bounded() {
     use eframe::wgpu::TextureFormat::{Rgba8Unorm, Rgba16Float};
     let mut a = Document::new("kept", photocraft_geom::Size::new(2000, 1500), photocraft_doc::ColorMode::Rgb, photocraft_doc::SampleType::U8);

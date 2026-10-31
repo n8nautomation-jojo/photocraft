@@ -223,6 +223,12 @@ impl KeptComposites {
     fn retain(&mut self, live: impl Fn(DocId) -> bool) {
         self.entries.retain(|k| live(k.id));
     }
+
+    /// Drop every reconstructible full-document composite after a platform memory warning.
+    pub(crate) fn clear(&mut self) {
+        self.entries.clear();
+        self.capped = Default::default();
+    }
 }
 
 /// Color Settings › "Blend Text Colors Using Gamma": type layers composite with it, but it is an

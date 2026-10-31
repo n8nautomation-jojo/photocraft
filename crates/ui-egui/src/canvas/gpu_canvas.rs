@@ -272,6 +272,21 @@ impl GpuCanvas {
         self.health.fault()
     }
 
+    /// Release reconstructible GPU caches under memory pressure without disabling the GPU
+    /// canvas. The next composite lazily rebuilds the compositor and uploads document textures
+    /// again from the authoritative CPU document.
+    pub fn trim_caches(&self) {
+        let mut renderer = self.rs.renderer.write();
+        if let Some(res) = renderer.callback_resources.get_mut::<Resources>() {
+            res.compositor = None;
+            res.docs.clear();
+            res.luts.clear();
+            res.display_lut_signatures.clear();
+            res.views.clear();
+            res.layer_fit = None;
+        }
+    }
+
     /// Free every GPU resource the canvas holds (compositor pages, document textures, LUTs) after
     /// a fault; the paint callback draws nothing from then on.
     pub fn release(&self) {

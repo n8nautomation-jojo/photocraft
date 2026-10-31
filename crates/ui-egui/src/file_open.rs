@@ -19,6 +19,9 @@ pub enum OsEvent {
     Suspend,
     /// The platform has brought the app back to the foreground.
     Resume,
+    /// The platform reports memory pressure while the app is alive. Dirty documents are
+    /// checkpointed before reconstructible display caches are released.
+    MemoryPressure,
     /// Quit (e.g. the Dock menu's Quit, log out): goes through the normal close path, which asks
     /// about unsaved changes.
     Quit,
@@ -375,6 +378,16 @@ impl PhotocraftApp {
                     }
                 },
                 OsEvent::Resume => ctx.request_repaint(),
+                OsEvent::MemoryPressure => {
+                    let recovery = crate::gpu_status::save_for_recovery(self);
+                    let released = crate::gpu_status::trim_reconstructible_caches(self);
+                    log::info!("platform memory pressure: released {released} reconstructible cache entries");
+                    if let Err(error) = recovery {
+                        log::error!("memory-pressure recovery checkpoint failed: {error}");
+                        notices::error(self, format!("Could not checkpoint documents during memory pressure: {error}"));
+                    }
+                    ctx.request_repaint();
+                }
                 OsEvent::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
             }
         }

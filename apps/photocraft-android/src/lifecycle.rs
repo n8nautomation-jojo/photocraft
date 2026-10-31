@@ -13,6 +13,7 @@ use winit::platform::android::activity::AndroidAppWaker;
 
 const EVENT_PAUSED: i32 = 1;
 const EVENT_RESUMED: i32 = 2;
+const EVENT_MEMORY_PRESSURE: i32 = 3;
 
 #[derive(Clone)]
 pub(super) struct LifecycleEvents {
@@ -74,15 +75,24 @@ pub(super) fn dispatch(event: i32) {
     let (wake, repaint) = {
         let mut slot = lock(active());
         let Some(bridge) = slot.as_mut() else { return };
-        let (paused, os_event) = match event {
-            EVENT_PAUSED => (true, OsEvent::Suspend),
-            EVENT_RESUMED => (false, OsEvent::Resume),
+        let os_event = match event {
+            EVENT_PAUSED => {
+                if bridge.paused {
+                    return;
+                }
+                bridge.paused = true;
+                OsEvent::Suspend
+            }
+            EVENT_RESUMED => {
+                if !bridge.paused {
+                    return;
+                }
+                bridge.paused = false;
+                OsEvent::Resume
+            }
+            EVENT_MEMORY_PRESSURE => OsEvent::MemoryPressure,
             _ => return,
         };
-        if bridge.paused == paused {
-            return;
-        }
-        bridge.paused = paused;
         lock(&bridge.events.queue).push_back(os_event);
         (bridge.waker.clone(), lock(&bridge.events.repaint).clone())
     };
@@ -104,8 +114,9 @@ mod tests {
         let events = LifecycleEvents::new();
         lock(&events.queue).push_back(OsEvent::Suspend);
         lock(&events.queue).push_back(OsEvent::Resume);
+        lock(&events.queue).push_back(OsEvent::MemoryPressure);
         let mut poll = events.os_events();
-        assert_eq!(poll(), vec![OsEvent::Suspend, OsEvent::Resume]);
+        assert_eq!(poll(), vec![OsEvent::Suspend, OsEvent::Resume, OsEvent::MemoryPressure]);
         assert!(poll().is_empty());
     }
 }

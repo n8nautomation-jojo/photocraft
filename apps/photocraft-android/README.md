@@ -35,7 +35,10 @@ RecoveryStore/flush path; the Activity callback only queues the event and wakes 
 so it does not perform encoding or filesystem work on Android's UI thread. Rust requests an
 egui repaint through eframe's registered repaint callback (the looper wake alone is not a redraw).
 Resume requests a fresh egui frame. This is a best-effort checkpoint request, not a guarantee against immediate process
-termination: it still needs real-device verification.
+termination: it still needs real-device verification. On Android `onTrimMemory` running-low and
+more severe callbacks, PhotoCraft checkpoints dirty documents and drops rebuildable canvas,
+thumbnail, histogram, LUT and GPU-compositor caches. The CPU document surfaces, undo history and
+active editing state are not evicted by this first memory-pressure response.
 
 The folder picker and Android clipboard are not connected yet. The SAF and lifecycle bridges have
 not been compiled or tested on a device. Provider permission policies differ, so an unavailable

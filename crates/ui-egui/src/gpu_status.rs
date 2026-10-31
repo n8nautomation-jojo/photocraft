@@ -144,6 +144,60 @@ pub(crate) fn save_for_recovery(app: &mut PhotocraftApp) -> Result<(), String> {
     if failed.is_empty() { Ok(()) } else { Err(format!("couldn't save for recovery: {}", failed.join("; "))) }
 }
 
+/// Release view-only caches that can be regenerated from the authoritative document and
+/// current preferences. This is deliberately narrower than engine tile eviction: document
+/// pixels, undo history, active tool gestures, and background jobs remain untouched.
+pub(crate) fn trim_reconstructible_caches(app: &mut PhotocraftApp) -> usize {
+    let released = app.canvases.len()
+        + app.navigator_textures.len()
+        + app.display_memo.len()
+        + app.navigator_gpu.len()
+        + app.navigator_plain.len()
+        + app.thumbs.len()
+        + app.thumb_frames.len()
+        + app.thumb_documents.len()
+        + app.snapshot_thumbs.len()
+        + app.bounds_cache.len()
+        + app.channel_views.len()
+        + usize::from(app.proxy.is_some())
+        + usize::from(app.proxy_uploaded.is_some())
+        + usize::from(app.channel_thumbs.is_some())
+        + usize::from(app.outline_cache.is_some())
+        + usize::from(app.info_samplers.is_some())
+        + usize::from(app.info_sample.is_some())
+        + usize::from(app.tone_hist.is_some())
+        + usize::from(app.doc_hist.is_some())
+        + usize::from(app.doc_hist_preview.is_some())
+        + usize::from(app.hist_uncached.is_some());
+
+    app.canvases.clear();
+    app.navigator_textures.clear();
+    app.display_memo.clear();
+    app.navigator_gpu.clear();
+    app.navigator_plain.clear();
+    app.thumbs.clear();
+    app.thumb_frames.clear();
+    app.snapshot_thumbs.clear();
+    app.thumb_documents.clear();
+    app.bounds_cache.clear();
+    app.proxy = None;
+    app.proxy_uploaded = None;
+    app.channel_thumbs = None;
+    app.channel_views.clear();
+    app.outline_cache = None;
+    app.info_samplers = None;
+    app.info_sample = None;
+    app.tone_hist = None;
+    app.doc_hist = None;
+    app.doc_hist_preview = None;
+    app.hist_uncached = None;
+    app.kept.clear();
+    if let Some(gpu) = app.gpu.as_ref() {
+        gpu.trim_caches();
+    }
+    released
+}
+
 /// Drop the GPU canvas after `fault`: free its resources, send every view through the CPU
 /// path, record why, and tell the user. Documents are untouched.
 pub fn fall_back(app: &mut PhotocraftApp, fault: &photocraft_gpu::Fault) {
@@ -300,6 +354,23 @@ pub fn show_fallback(app: &mut PhotocraftApp, ctx: &egui::Context) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn memory_pressure_trim_drops_rebuildable_caches_without_touching_session_state() {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        app.bounds_cache.insert(1, (2, photocraft_geom::Rect::from_xywh(0, 0, 8, 8)));
+        app.proxy_uploaded = Some((photocraft_doc::DocId(9), 3));
+        app.info_sample = Some(((1, 2, 3, 4), [0.1, 0.2, 0.3, 0.4]));
+        let documents_before = app.session.documents().len();
+
+        let released = trim_reconstructible_caches(&mut app);
+
+        assert_eq!(released, 3, "counts the three seeded rebuildable cache entries");
+        assert!(app.bounds_cache.is_empty());
+        assert!(app.proxy_uploaded.is_none());
+        assert!(app.info_sample.is_none());
+        assert_eq!(app.session.documents().len(), documents_before, "the document session is untouched");
+    }
 
     #[test]
     fn system_info_copy_and_api_stay_english_in_czech_ui() {
