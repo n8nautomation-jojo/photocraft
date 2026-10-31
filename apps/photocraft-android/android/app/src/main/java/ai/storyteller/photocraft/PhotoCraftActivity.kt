@@ -2,7 +2,6 @@ package ai.storyteller.photocraft
 
 import android.app.Activity
 import android.content.Intent
-import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
@@ -42,9 +41,11 @@ class PhotoCraftActivity : GameActivity() {
     private val safIo = Executors.newSingleThreadExecutor()
     private var activeSafRequestId: Long? = null
 
+    private data class SurfaceMargins(val left: Int, val top: Int, val right: Int, val bottom: Int)
+
     // The native surface is inset rather than drawing beneath system UI. GameActivity forwards
     // the same WindowInsets to native code, so changing these margins also updates its content rect.
-    private var baseSurfaceMargins: Rect? = null
+    private var baseSurfaceMargins: SurfaceMargins? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,7 +78,7 @@ class PhotoCraftActivity : GameActivity() {
 
     private fun applySafeSurfaceInsets(view: View, safe: Insets) {
         val params = view.layoutParams as? FrameLayout.LayoutParams ?: return
-        val base = baseSurfaceMargins ?: Rect(
+        val base = baseSurfaceMargins ?: SurfaceMargins(
             params.leftMargin, params.topMargin, params.rightMargin, params.bottomMargin
         ).also { baseSurfaceMargins = it }
 
