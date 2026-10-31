@@ -683,10 +683,11 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
             if phone_layout {
                 // Keep the title and confirmation controls reachable while long forms are swiped.
                 // ScrollArea shrinks to its content when it fits, so short dialogs remain one-screen.
-                let body_height = (ctx.content_rect().height() - DIALOG_CHROME - 16.0).max(72.0);
+                let body_height = (ctx.content_rect().height() - DIALOG_CHROME - 16.0).max(0.0);
                 egui::ScrollArea::vertical()
                     .id_salt(id.with("phone-dialog-body"))
                     .auto_shrink([false, true])
+                    .min_scrolled_height(0.0)
                     .max_height(body_height)
                     .show(ui, |body_ui| render_body(body_ui));
             } else {
