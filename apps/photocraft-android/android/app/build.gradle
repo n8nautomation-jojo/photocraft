@@ -1,0 +1,74 @@
+plugins {
+    id "com.android.application"
+    id "org.jetbrains.kotlin.android"
+}
+
+def repositoryRoot = rootProject.projectDir.parentFile.parentFile.parentFile
+def generatedJniLibs = layout.projectDirectory.dir("src/main/jniLibs").asFile
+
+// Keep Rust in the workspace as the only editor implementation. The generated .so is a local
+// build artifact and is intentionally not committed to the repository.
+tasks.register("buildRustAndroid", Exec) {
+    group = "build"
+    description = "Cross-compiles the PhotoCraft Rust editor for Android arm64-v8a."
+    workingDir repositoryRoot
+    doFirst {
+        generatedJniLibs.mkdirs()
+    }
+    commandLine(
+        "cargo", "ndk",
+        "-t", "arm64-v8a",
+        "-o", generatedJniLibs.absolutePath,
+        "build",
+        "--release",
+        "--locked",
+        "-p", "photocraft-android",
+        "--lib"
+    )
+}
+
+tasks.named("preBuild").configure {
+    dependsOn(tasks.named("buildRustAndroid"))
+}
+
+android {
+    namespace "ai.storyteller.photocraft"
+    compileSdk 36
+    ndkVersion "28.2.13676358"
+
+    defaultConfig {
+        applicationId "ai.storyteller.photocraft"
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName "0.18.0"
+
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
+dependencies {
+    // GameActivity 4.4.0 is the version supported by android-activity 0.6 / winit 0.30.
+    implementation "androidx.games:games-activity:4.4.0"
+}
