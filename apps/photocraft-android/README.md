@@ -30,13 +30,13 @@ Install:
 Set ANDROID_SDK_ROOT and ANDROID_NDK_HOME to the installed SDK and NDK directories. For example,
 on a Linux host:
 
-\`\`\`sh
+```sh
 rustup toolchain install 1.95.0 --profile minimal
 rustup target add --toolchain 1.95.0 aarch64-linux-android
 cargo +1.95.0 install cargo-ndk --locked
 export ANDROID_SDK_ROOT="$HOME/Android/Sdk"
 export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/28.2.13676358"
-\`\`\`
+```
 
 Open apps/photocraft-android/android in Android Studio, or run the Gradle :app:assembleDebug task
 from that directory. The Gradle preBuild task invokes cargo ndk from the repository root and
@@ -44,9 +44,9 @@ places the generated libmain.so under the app's local jniLibs/arm64-v8a director
 
 For a direct native compile before packaging:
 
-\`\`\`sh
+```sh
 cargo +1.95.0 ndk -t arm64-v8a -o apps/photocraft-android/android/app/src/main/jniLibs build --release --locked -p photocraft-android --lib
-\`\`\`
+```
 
 The generated native library, Gradle caches, SDK settings and build outputs are intentionally
 ignored by Git. They must remain local build artifacts.
