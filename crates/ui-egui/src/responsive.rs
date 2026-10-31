@@ -1,7 +1,7 @@
 //! Viewport-driven compact layouts shared by the native UI shell.
 //!
-//! Breakpoints are measured in egui points (Android dp after the platform scale), not physical
-//! pixels or a guessed device model. This lets resizable windows and rotated phones adapt too.
+//! Breakpoints use the live egui logical content size, never physical pixels or a guessed
+device model. Resizable windows and rotated phones therefore adapt through the same policy.
 
 /// Below this width, a side toolbar and side dock leave too little room for the document canvas.
 pub(crate) const COMPACT_WIDTH: f32 = 720.0;
