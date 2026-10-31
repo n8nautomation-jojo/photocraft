@@ -12,7 +12,13 @@ integration and packages the Rust dynamic library for **arm64-v8a**.
 The Android host now initializes app-private preferences, the preset store, crash-recovery
 autosaves, recovery discovery/adoption, codec import/export callbacks and atomic file writes.
 These services use the existing PhotoCraft Rust engine and format implementation. App-private
-state stays under Android's internal data directory.
+state stays under Android's internal data directory. The existing GPU canvas budget now reads
+Android's physical RAM from `/proc/meminfo` instead of falling back to the desktop's 16 GB
+assumption. Desktop self-update UI and desktop-only eframe clipboard/floating-window features are
+not included in the Android dependency target.
+
+This RAM detection is not the requested global 40% tile-memory manager or reconstructible-tile LRU;
+those remain separate engineering gates.
 
 This is still a bootstrap, not a finished Android port. Android Storage Access Framework (SAF)
 Open/Save dialogs and Android clipboard are not connected yet, so users cannot currently browse
