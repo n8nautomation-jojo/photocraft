@@ -5041,11 +5041,16 @@ name = "photocraft-android"
 version = "0.18.0"
 dependencies = [
  "eframe",
+ "log",
+ "photocraft-codecs",
+ "photocraft-doc",
  "photocraft-engine",
+ "photocraft-format",
+ "photocraft-io",
+ "photocraft-raster",
  "photocraft-ui-egui",
  "winit",
 ]
-
 [[package]]
 name = "photocraft-automation"
 version = "0.18.0"
