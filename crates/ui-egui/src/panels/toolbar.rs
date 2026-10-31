@@ -577,3 +577,86 @@ fn chip_command(app: &mut PhotocraftApp, id: &str) {
         crate::type_tool::foreground_changed(app);
     }
 }
+
+
+/// Phone-first tool shelf: large touch targets in a horizontally scrollable row, with every
+/// registered tool available from the More menu. The desktop vertical toolbar is unchanged.
+pub fn mobile_toolbar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
+    let t = Tokens::get(ui.ctx());
+    egui::Panel::bottom("mobile_tool_shelf")
+        .exact_size(58.0)
+        .frame(egui::Frame::NONE.fill(t.chrome).inner_margin(egui::Margin::symmetric(6, 4)))
+        .show(ui, |ui| {
+            ui.spacing_mut().item_spacing.x = 4.0;
+            crate::direction::horizontal_centered(ui, |ui| {
+                let panels_open = crate::panels::phone_panels_open(ui.ctx(), app.ui.panels.dock);
+                if icons::button(ui, "layers", 48.0, panels_open, tl!("Panels")).clicked() {
+                    crate::panels::toggle_phone_panels(ui.ctx(), app.ui.panels.dock);
+                }
+                widgets::vline(ui, 34.0);
+                let more_width = 64.0;
+                let fit_width = 52.0;
+                let shelf_width = (ui.available_width() - more_width - fit_width - 12.0).max(0.0);
+                egui::ScrollArea::horizontal()
+                    .id_salt("mobile-tool-shelf")
+                    .auto_shrink([false, false])
+                    .max_width(shelf_width)
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing.x = 3.0;
+                            const QUICK: &[Tool] = &[
+                                Tool::Move,
+                                Tool::RectMarquee,
+                                Tool::Lasso,
+                                Tool::ObjectSelection,
+                                Tool::Crop,
+                                Tool::Eyedropper,
+                                Tool::Brush,
+                                Tool::Eraser,
+                                Tool::CloneStamp,
+                                Tool::Gradient,
+                                Tool::Type,
+                                Tool::Hand,
+                                Tool::Zoom,
+                            ];
+                            for &tool in QUICK {
+                                let selected = app.ui.tool == tool;
+                                let response = icons::button(ui, icons::tool_icon(tool), 48.0, selected, tl!(tool.label()));
+                                if response.clicked() {
+                                    crate::tool_memory::select(app, tool);
+                                }
+                            }
+                        });
+                    });
+                let more = ui.add_sized(vec2(more_width, 48.0), egui::Button::new(tl!("More")));
+                egui::Popup::menu(&more).show(|ui| {
+                    ui.set_min_width(240.0);
+                    egui::ScrollArea::vertical().max_height(420.0).show(ui, |ui| {
+                        for section in TOOL_SECTIONS {
+                            ui.horizontal_wrapped(|ui| {
+                                for slot in *section {
+                                    for &tool in *slot {
+                                        let selected = app.ui.tool == tool;
+                                        let response = ui.add_sized(
+                                            vec2(108.0, 42.0),
+                                            egui::Button::new(tl!(tool.label())).selected(selected),
+                                        );
+                                        if response.clicked() {
+                                            crate::tool_memory::select(app, tool);
+                                            ui.close();
+                                        }
+                                    }
+                                }
+                            });
+                            ui.separator();
+                        }
+                    });
+                });
+                if ui.add_sized(vec2(fit_width, 48.0), egui::Button::new(tl!("Fit"))).clicked()
+                    && let Some(index) = app.session.active_index()
+                {
+                    app.ui.views[index].fit_pending = true;
+                }
+            });
+        });
+}
