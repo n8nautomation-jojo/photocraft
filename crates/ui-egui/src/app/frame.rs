@@ -275,17 +275,22 @@ impl PhotocraftApp {
         if (chrome || tabbed_in) && self.ui.panels.menu_bar {
             panels::title_bar(self, ui);
         }
+        let compact = crate::responsive::compact(&ctx);
         if (chrome && self.ui.panels.options_bar) || tabbed_in {
             panels::options_bar(self, ui);
         }
-        if chrome && self.ui.panels.status_bar {
+        if chrome && self.ui.panels.status_bar && !compact {
             panels::status_bar(self, ui);
         }
-        if (chrome && self.ui.panels.toolbar) || tabbed_in {
+        if ((chrome && self.ui.panels.toolbar) || tabbed_in) && !compact {
             panels::toolbar(self, ui);
         }
-        // craft-ui's layout holds the canvas as its protected `canvas` panel.
-        let docking = (chrome && self.ui.panels.dock) || tabbed_in;
+        if compact && (chrome || tabbed_in) {
+            panels::mobile_toolbar(self, ui);
+        }
+        // The compact workspace keeps the protected canvas full width and presents panels as a
+        // switchable bottom drawer. It must not instantiate the desktop side dock on a phone.
+        let docking = if compact { chrome || tabbed_in } else { (chrome && self.ui.panels.dock) || tabbed_in };
         if docking {
             panels::dock_area(self, ui);
         } else {
