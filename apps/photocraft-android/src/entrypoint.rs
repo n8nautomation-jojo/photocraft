@@ -37,6 +37,7 @@ pub fn android_main(android_app: AndroidApp) {
     // The waker lets the Activity's Java lifecycle callbacks request one more egui frame without
     // blocking Android's UI thread.
     super::lifecycle::install(android_app.create_waker(), lifecycle_events);
+    let lifecycle_for_app = lifecycle_events.clone();
 
     let options = NativeOptions {
         renderer: Renderer::Wgpu,
@@ -49,6 +50,7 @@ pub fn android_main(android_app: AndroidApp) {
         options,
         Box::new(move |creation| {
             PhotocraftApp::setup_context(&creation.egui_ctx, ThemeKind::ProMedium);
+            lifecycle_for_app.set_context(creation.egui_ctx.clone());
             Ok(Box::new(PhotocraftApp::new(Session::new(), services)))
         }),
     );
