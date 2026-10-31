@@ -16,7 +16,6 @@ use jni::{
 };
 use photocraft_ui_egui::{
     FileDialogAnswer, FileDialogFn, FileDialogReply, FileDialogRequest,
-    jobs_ui::SaveCtl,
 };
 
 const PICKER_METHOD: &str = "launchPhotoCraftSafPicker";
@@ -119,20 +118,40 @@ impl SafBridge {
             .map_err(|e| format!("persist SAF URI grants: {e}"))
     }
 
-    fn uri_for_path(&self, path: &Path) -> Option<String> {
-        lock(&self.inner.grants).get(path.to_str()?).cloned()
+    fn uri_for_path(&self, path: &Path) -> Result<Option<String>, String> {
+        let Some(path_text) = path.to_str() else {
+            return Err("SAF working path is not valid Unicode".into());
+        };
+        let mut grants = lock(&self.inner.grants);
+        if let Some(uri) = grants.get(path_text) {
+            return Ok(Some(uri.clone()));
+        }
+
+        // PhotoCraft may normalize a selected Save As extension (for example, ".PSD" to
+        // ".psd"). Save targets are created in a unique directory, so a single grant with
+        // the same parent unambiguously identifies the selected provider URI.
+        let Some(parent) = path.parent() else { return Ok(None) };
+        let mut matches = grants.iter().filter(|(old_path, _)| Path::new(old_path).parent() == Some(parent));
+        let Some((old_path, uri)) = matches.next() else { return Ok(None) };
+        if matches.next().is_some() {
+            return Err("multiple SAF document grants share the same working directory".into());
+        }
+        let old_path = old_path.clone();
+        let uri = uri.clone();
+        grants.remove(&old_path);
+        grants.insert(path_text.to_owned(), uri.clone());
+        let bytes = serde_json::to_vec(&*grants).map_err(|e| format!("encode renamed SAF URI grant: {e}"))?;
+        photocraft_format::atomic_write(&self.inner.grant_file, &bytes)
+            .map_err(|e| format!("persist renamed SAF URI grant: {e}"))?;
+        Ok(Some(uri))
     }
 
     pub(super) fn sync_to_provider(&self, path: &Path) -> Result<(), String> {
-        self.sync_to_provider_inner(path, None)
+        self.sync_to_provider_inner(path)
     }
 
-    pub(super) fn sync_to_provider_with_ctl(&self, path: &Path, ctl: &SaveCtl) -> Result<(), String> {
-        self.sync_to_provider_inner(path, Some(ctl))
-    }
-
-    fn sync_to_provider_inner(&self, path: &Path, ctl: Option<&SaveCtl>) -> Result<(), String> {
-        let Some(uri) = self.uri_for_path(path) else { return Ok(()) };
+    fn sync_to_provider_inner(&self, path: &Path) -> Result<(), String> {
+        let Some(uri) = self.uri_for_path(path)? else { return Ok(()) };
         let path = path.to_str().ok_or("SAF working path is not valid Unicode")?.to_owned();
         let request_id = NEXT_REQUEST.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = mpsc::channel();
@@ -141,7 +160,6 @@ impl SafBridge {
         self.post_to_activity(request_id, WRITE_METHOD, payload.to_string());
         let deadline = Instant::now() + WRITE_TIMEOUT;
         loop {
-            if let Some(ctl) = ctl { ctl.check()?; }
             match rx.recv_timeout(Duration::from_millis(200)) {
                 Ok(result) => return result,
                 Err(RecvTimeoutError::Disconnected) => return Err("Android provider write callback disconnected".into()),
