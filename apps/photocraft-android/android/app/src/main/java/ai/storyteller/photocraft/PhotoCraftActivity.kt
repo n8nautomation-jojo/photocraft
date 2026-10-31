@@ -64,7 +64,7 @@ class PhotoCraftActivity : GameActivity() {
 
         // GameActivity installs itself as the SurfaceView's insets listener during super.onCreate.
         // Request a fresh dispatch now that edge-to-edge is enabled.
-        mSurfaceView?.let(ViewCompat::requestApplyInsets)
+        mSurfaceView?.let { surface -> ViewCompat.requestApplyInsets(surface) }
     }
 
     override fun onApplyWindowInsets(v: View, insets: WindowInsetsCompat): WindowInsetsCompat {
