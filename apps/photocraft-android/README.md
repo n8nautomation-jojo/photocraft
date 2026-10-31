@@ -9,11 +9,22 @@ entry class and future Android platform bridges.
 The first bootstrap slice starts the existing PhotoCraftApp through eframe's GameActivity
 integration and packages the Rust dynamic library for **arm64-v8a**.
 
-This is not yet a feature-complete Android port. In particular, Android Storage Access Framework
-Open/Save, Android clipboard and lifecycle-driven recovery wiring are not connected in this slice.
-The host currently constructs Services::default(), so desktop filesystem dialogs and desktop
-clipboard services are not pulled into Android. These are explicit next implementation tasks, not
-silently substituted desktop implementations.
+The Android host now initializes app-private preferences, the preset store, crash-recovery
+autosaves, recovery discovery/adoption, codec import/export callbacks and atomic file writes.
+These services use the existing PhotoCraft Rust engine and format implementation. App-private
+state stays under Android's internal data directory. The existing GPU canvas budget now reads
+Android's physical RAM from `/proc/meminfo` instead of falling back to the desktop's 16 GB
+assumption. Desktop self-update UI and desktop-only eframe clipboard/floating-window features are
+not included in the Android dependency target.
+
+This RAM detection is not the requested global 40% tile-memory manager or reconstructible-tile LRU;
+those remain separate engineering gates.
+
+This is still a bootstrap, not a finished Android port. Android Storage Access Framework (SAF)
+Open/Save dialogs and Android clipboard are not connected yet, so users cannot currently browse
+arbitrary documents from inside the editor. The app deliberately does not pretend that a SAF
+content URI is a normal filesystem path. Lifecycle-specific pause/low-memory recovery handling,
+tablet/phone layout adaptation and device validation remain open tasks.
 
 ## Toolchain
 
@@ -54,8 +65,13 @@ ignored by Git. They must remain local build artifacts.
 ## Next gates
 
 1. Compile the Android package and resolve every actual target-specific compile/link error without
-   disabling editor crates or codecs.
-2. Add a SAF bridge for Open/Save and verify a PNG can be opened in the existing canvas.
-3. Measure native memory with a 12 MP image and 10 layers on a real Android device.
-4. Verify pointer, stylus, keyboard and wheel behavior on a tablet and a phone.
-5. Wire Android lifecycle callbacks to autosave flush/recovery and test process death.
+   disabling editor crates or codecs. This target has not yet been built in a real Android toolchain.
+2. Add a SAF bridge for Open/Save and verify a PNG can be opened and saved through Android document
+   providers without copying or corrupting user files.
+3. Add the Android clipboard bridge and test text, pixel and image clipboard round trips.
+4. Wire pause, stop, low-memory and device-loss lifecycle signals to recovery flushing, and test
+   force-stop/process death and app switching.
+5. Measure native memory with a 12 MP image and 10 layers on a real Android device; validate the
+   configured GPU budget against actual device RAM.
+6. Verify mouse primary/secondary, hover, stylus, keyboard shortcuts, Space+drag and wheel input on
+   a tablet and a phone. Adapt the existing panels for tablet landscape and compact phone layouts.

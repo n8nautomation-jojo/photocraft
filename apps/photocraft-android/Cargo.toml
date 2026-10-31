@@ -11,16 +11,26 @@ crate-type = ["cdylib"]
 
 [dependencies]
 eframe = { workspace = true, features = ["wgpu", "accesskit", "android-game-activity"] }
+photocraft-codecs = { workspace = true, features = ["heif"] }
+photocraft-doc = { workspace = true }
 photocraft-engine = { workspace = true }
+photocraft-format = { workspace = true }
+photocraft-io = { workspace = true }
+photocraft-raster = { workspace = true }
 photocraft-ui-egui = { workspace = true }
+log = { workspace = true }
 # Keep this on the same pinned winit revision selected by the workspace patch.
 # The AndroidApp type is re-exported here; do not add a second android-activity version.
 winit = { version = "=0.30.13", default-features = false }
 
-[lints]
-workspace = true
-
-# The Android ABI entrypoint needs one exported symbol. All other unsafe code remains denied;
-# the only scoped allowance is in src/entrypoint.rs for the required symbol attribute.
+# Match the workspace's Clippy policy while keeping this crate's ABI boundary at deny rather
+# than forbid: Rust 2024 marks the required exported symbol attribute as unsafe.
 [lints.rust]
 unsafe_code = "deny"
+
+[lints.clippy]
+cognitive_complexity = "deny"
+too_many_arguments = "deny"
+wildcard_imports = "deny"
+dbg_macro = "warn"
+todo = "warn"

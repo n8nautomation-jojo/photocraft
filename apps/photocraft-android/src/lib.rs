@@ -5,3 +5,5 @@
 
 #[cfg(target_os = "android")]
 mod entrypoint;
+#[cfg(target_os = "android")]
+mod services;
