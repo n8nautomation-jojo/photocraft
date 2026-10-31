@@ -637,6 +637,8 @@ fn show_phone(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     style.right_to_left = crate::direction::is_rtl();
     style.new_dock_zones = false;
 
+    #[cfg(test)]
+    ctx.data_mut(|data| data.insert_temp(bodies_id(), Vec::<(String, egui::Rect)>::new()));
     let mut dock = craft_ui::docking::DockArea::new(area)
         .locked(true)
         .input_blocked(modal_open(app, &ctx));
