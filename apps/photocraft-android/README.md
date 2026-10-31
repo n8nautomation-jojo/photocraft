@@ -19,13 +19,13 @@ silently substituted desktop implementations.
 
 Install:
 
-- JDK 17
+- JDK 17 (AGP 9.x built-in Kotlin support; no separate Kotlin Android plugin is applied)
 - Android SDK Platform 36 and Android Build Tools 36.0.0
 - Android NDK 28.2.13676358
 - Rust toolchain 1.95.0 (the version required by the root workspace)
 - Rust target aarch64-linux-android
 - cargo-ndk
-- Gradle 9.5.1 or a compatible Android Studio Gradle installation
+- Gradle 9.5.1 or newer within the AGP 9.3.1 compatibility range
 
 Set ANDROID_SDK_ROOT and ANDROID_NDK_HOME to the installed SDK and NDK directories. For example,
 on a Linux host:
