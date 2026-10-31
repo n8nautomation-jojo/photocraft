@@ -219,7 +219,7 @@ pub fn mobile_menu_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) -> f32 {
     let items = menu_items(app);
     let mut clicked: Option<String> = None;
     let mut nav = crate::menu_nav::Nav::load(ui.ctx());
-    let response = ui.add_sized(egui::vec2(64.0, 34.0), egui::Button::new(crate::i18n::t("Menu")));
+    let response = ui.add_sized(egui::vec2(72.0, 48.0), egui::Button::new(crate::i18n::t("Menu")));
     egui::Popup::menu(&response).show(|ui| {
         ui.set_min_width(240.0);
         egui::ScrollArea::vertical().max_height(520.0).show(ui, |ui| {
