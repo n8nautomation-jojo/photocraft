@@ -30,7 +30,11 @@ impl LifecycleEvents {
 
     /// Attach the egui context after eframe creates the native application.
     pub(super) fn set_context(&self, context: eframe::egui::Context) {
-        *lock(&self.repaint) = Some(context);
+        let pending = !lock(&self.queue).is_empty();
+        *lock(&self.repaint) = Some(context.clone());
+        if pending {
+            context.request_repaint();
+        }
     }
 
     pub(super) fn os_events(&self) -> OsEventsFn {
