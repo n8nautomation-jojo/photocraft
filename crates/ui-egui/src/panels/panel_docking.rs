@@ -524,9 +524,161 @@ fn app_owned(app: &mut PhotocraftApp, command: DockCommand<String>) -> Result<Va
     crate::workspace_ui::menu(app, id, &params).unwrap_or_else(|| Err(format!("`{id}` is not available")))
 }
 
+fn phone_open_id() -> egui::Id {
+    area_id().with("phone-panels-open")
+}
+
+fn phone_panel_id() -> egui::Id {
+    area_id().with("phone-active-panel")
+}
+
+/// Whether the compact workspace's lower panel drawer is open. Its initial state favours the
+/// Layers panel in portrait and starts closed in short landscape, leaving the canvas visible.
+pub(crate) fn phone_panels_open(ctx: &egui::Context, dock_enabled: bool) -> bool {
+    let default_open = dock_enabled && ctx.content_rect().height() >= 520.0;
+    ctx.data(|data| data.get_temp::<bool>(phone_open_id())).unwrap_or(default_open)
+}
+
+/// Toggle the compact panel drawer without mutating the user's saved desktop workspace.
+pub(crate) fn toggle_phone_panels(ctx: &egui::Context, dock_enabled: bool) {
+    let open = !phone_panels_open(ctx, dock_enabled);
+    ctx.data_mut(|data| data.insert_temp(phone_open_id(), open));
+    ctx.request_repaint();
+}
+
+const PHONE_PANELS: &[(&str, &str)] = &[
+    ("layers", "Layers"),
+    ("channels", "Channels"),
+    ("paths", "Paths"),
+    ("properties", "Properties"),
+    ("adjustments", "Adjustments"),
+    ("color", "Color"),
+    ("swatches", "Swatches"),
+    ("brushes", "Brushes"),
+    ("history", "History"),
+    ("actions", "Actions"),
+    ("navigator", "Navigator"),
+    ("histogram", "Histogram"),
+    ("info", "Info"),
+    ("character", "Character"),
+    ("paragraph", "Paragraph"),
+    ("gradients", "Gradients"),
+    ("patterns", "Patterns"),
+    ("layerComps", "Layer Comps"),
+];
+
+/// A temporary phone workspace: a protected canvas above one full-width panel. The selector and
+/// drawer are presentation state only; the desktop docking tree and its saved geometry are never
+/// rewritten when the device rotates or the viewport crosses a breakpoint.
+fn show_phone(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
+    let ctx = ui.ctx().clone();
+    let area = area_id().with("phone");
+    let mut selected = ctx
+        .data(|data| data.get_temp::<String>(phone_panel_id()))
+        .filter(|id| PHONE_PANELS.iter().any(|(known, _)| *known == id))
+        .unwrap_or_else(|| "layers".to_owned());
+    let open = phone_panels_open(&ctx, app.ui.panels.dock);
+
+    if open {
+        egui::Frame::NONE
+            .fill(crate::theme::Tokens::get(&ctx).chrome)
+            .show(ui, |ui| {
+                egui::ScrollArea::horizontal()
+                    .id_salt("phone-panel-selector")
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing.x = 4.0;
+                            for (id, label) in PHONE_PANELS {
+                                let response = ui.add_sized(
+                                    egui::vec2(78.0, 48.0),
+                                    egui::Button::new(tl!(label)).selected(selected == *id),
+                                );
+                                if response.clicked() {
+                                    selected = (*id).to_owned();
+                                }
+                            }
+                        });
+                    });
+            });
+        ctx.data_mut(|data| data.insert_temp(phone_panel_id(), selected.clone()));
+    }
+
+    let root = if open {
+        let panel_height = (ui.available_height() * 0.36).clamp(150.0, 250.0);
+        Node::Split {
+            axis: SplitAxis::Vertical,
+            size: SplitSize::FixedSecond(panel_height),
+            first: Box::new(Node::Tabs { panels: vec![CANVAS.to_owned()], active: 0 }),
+            second: Box::new(Node::Tabs { panels: vec![selected], active: 0 }),
+        }
+    } else {
+        Node::Tabs { panels: vec![CANVAS.to_owned()], active: 0 }
+    };
+    let layout = Layout { root: Some(root), floating: Vec::new() };
+    let collapsed = std::collections::HashSet::new();
+    let fillers = fillers(&layout);
+    let card = std::collections::HashSet::new();
+    let t = crate::theme::Tokens::get(&ctx);
+    let mut style = craft_ui::docking::DockStyle::from_ui(ui);
+    style.tab_height = 40.0;
+    style.min_pane = 0.0;
+    style.background = t.card;
+    style.tab_background = t.card;
+    style.active_background = t.card;
+    style.text = t.text;
+    style.inactive_text = t.text_dim;
+    style.border = egui::Stroke::new(1.0, t.card_border);
+    style.accent = t.accent;
+    style.right_to_left = crate::direction::is_rtl();
+    style.new_dock_zones = false;
+
+    let mut dock = craft_ui::docking::DockArea::new(area)
+        .locked(true)
+        .input_blocked(modal_open(app, &ctx));
+    let mut commands = Vec::new();
+    let strip = style.tab_height;
+    let mut output = dock.show_customized(
+        ui,
+        &layout,
+        &style,
+        |id| PHONE_PANELS.iter().find(|(panel, _)| *panel == id).map(|(_, label)| tl!(label).to_string()).unwrap_or_else(|| id.clone()),
+        permissions,
+        |id| {
+            if id == CANVAS {
+                craft_ui::docking::PanelLimits { min: egui::vec2(200.0, 120.0), ..Default::default() }
+            } else {
+                craft_ui::docking::PanelLimits { min: egui::vec2(220.0, 80.0), ..Default::default() }
+            }
+        },
+        &mut PanelContent { app, collapsed: &collapsed, fillers: &fillers, card: &card, strip, commands: &mut commands },
+    );
+    if let Some(error) = output.error.take() {
+        app.ui.status = error.to_string();
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    open_window_drops(app, &ctx, std::mem::take(&mut output.window_files));
+    let forwarded = std::mem::take(&mut output.forwarded_events);
+    crate::shortcuts::handle_forwarded(app, &ctx, forwarded, output.forwarded_modifiers.unwrap_or_default());
+    for action in output.actions {
+        if let Err(error) = app.run("window.panel.layout", json!({"action": action})) {
+            app.ui.status = error;
+        }
+    }
+    for (id, params) in commands {
+        if let Err(error) = app.run(id, params) {
+            app.ui.status = error;
+        }
+    }
+}
+
 /// Draw the layout, the canvas included, in the space `ui` has left: the customized workspace,
 /// else the native dock's arrangement.
 pub(crate) fn show(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
+    if crate::responsive::compact(ui.ctx()) {
+        show_phone(app, ui);
+        return;
+    }
     let area = area_id();
     let changed_workspace = ui.ctx().data_mut(|data| {
         let previous = data.get_temp::<u64>(area.with("generation"));
