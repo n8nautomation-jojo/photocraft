@@ -17,11 +17,24 @@ const EVENT_RESUMED: i32 = 2;
 #[derive(Clone)]
 pub(super) struct LifecycleEvents {
     queue: Arc<Mutex<VecDeque<OsEvent>>>,
+    repaint: Arc<Mutex<Option<eframe::egui::Context>>>,
 }
 
 impl LifecycleEvents {
     pub(super) fn new() -> Self {
-        Self { queue: Arc::new(Mutex::new(VecDeque::new())) }
+        Self {
+            queue: Arc::new(Mutex::new(VecDeque::new())),
+            repaint: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    /// Attach the egui context after eframe creates the native application.
+    pub(super) fn set_context(&self, context: eframe::egui::Context) {
+        let pending = !lock(&self.queue).is_empty();
+        *lock(&self.repaint) = Some(context.clone());
+        if pending {
+            context.request_repaint();
+        }
     }
 
     pub(super) fn os_events(&self) -> OsEventsFn {
@@ -58,7 +71,7 @@ pub(super) fn uninstall() {
 
 /// Called by the JNI boundary in `saf.rs`. Unknown values and redundant transitions are ignored.
 pub(super) fn dispatch(event: i32) {
-    let wake = {
+    let (wake, repaint) = {
         let mut slot = lock(active());
         let Some(bridge) = slot.as_mut() else { return };
         let (paused, os_event) = match event {
@@ -71,11 +84,14 @@ pub(super) fn dispatch(event: i32) {
         }
         bridge.paused = paused;
         lock(&bridge.events.queue).push_back(os_event);
-        bridge.waker.clone()
+        (bridge.waker.clone(), lock(&bridge.events.repaint).clone())
     };
 
-    // Waking the Android looper causes winit/eframe to run another frame, where Services::os_events
-    // drains the signal and the existing recovery writer snapshots the dirty documents.
+    // AndroidAppWaker interrupts the native looper but does not itself schedule a winit redraw.
+    // egui's repaint callback is what asks eframe/winit to issue the frame that drains os_events.
+    if let Some(context) = repaint {
+        context.request_repaint();
+    }
     wake.wake();
 }
 

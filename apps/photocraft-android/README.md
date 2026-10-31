@@ -32,8 +32,9 @@ The Android host now has a first SAF Open/Save bridge:
 The Android Activity now forwards pause/resume transitions to the Rust event loop. On pause, the
 Rust UI loop requests a recovery snapshot of every dirty document through the existing
 RecoveryStore/flush path; the Activity callback only queues the event and wakes the native looper,
-so it does not perform encoding or filesystem work on Android's UI thread. Resume requests a fresh
-egui frame. This is a best-effort checkpoint request, not a guarantee against immediate process
+so it does not perform encoding or filesystem work on Android's UI thread. Rust requests an
+egui repaint through eframe's registered repaint callback (the looper wake alone is not a redraw).
+Resume requests a fresh egui frame. This is a best-effort checkpoint request, not a guarantee against immediate process
 termination: it still needs real-device verification.
 
 The folder picker and Android clipboard are not connected yet. The SAF and lifecycle bridges have
