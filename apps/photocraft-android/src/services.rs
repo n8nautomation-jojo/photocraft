@@ -1,12 +1,12 @@
 //! Android platform services backed by the app's private internal storage.
 //!
 //! Files in the app-private area are used for preferences, presets and crash recovery. User
-//! documents must be accessed through the Storage Access Framework; this module deliberately does
-//! not pretend that Android content URIs are ordinary filesystem paths. SAF dialogs are a later
-//! bridge and are not installed until that bridge can provide real read/write capabilities.
+//! User documents are accessed through the Storage Access Framework bridge. Content URIs remain
+//! separate from filesystem paths; selected data is staged in app-private working files.
 
 use photocraft_codecs::{ChannelLayout, EncodeOptions, Image};
 use photocraft_doc::Document;
+use crate::saf::SafBridge;
 use photocraft_format::RecoveryStore;
 use photocraft_ui_egui::{
     ExportSettings, FileStamp, Recoverable, Services,
@@ -71,6 +71,7 @@ fn export_file(
     path: &str,
     settings: &ExportSettings,
     ctl: &SaveCtl,
+    saf: &SafBridge,
 ) -> Result<Vec<String>, String> {
     ctl.progress(0.0, "Encoding");
     let options = settings.io_options();
@@ -86,12 +87,14 @@ fn export_file(
         ctl.progress(ENCODE_SHARE + (0.99 - ENCODE_SHARE) * fraction, "");
     })
     .map_err(|error| error.to_string())?;
+    ctl.progress(0.99, "Writing to document provider");
+    saf.sync_to_provider(Path::new(path))?;
     ctl.progress(1.0, "");
     Ok(result.warnings)
 }
 
 /// Construct platform services after the GameActivity has supplied its private data directory.
-pub(super) fn create(internal_data_dir: PathBuf) -> Result<Services, String> {
+pub(super) fn create(internal_data_dir: PathBuf, saf: SafBridge) -> Result<Services, String> {
     let app_data = internal_data_dir.join("PhotoCraft");
     let recovery_dir = app_data.join("Recovery");
     let presets_dir = app_data.join("Presets");
@@ -112,9 +115,17 @@ pub(super) fn create(internal_data_dir: PathBuf) -> Result<Services, String> {
                 .map(|result| (result.bytes, result.warnings))
                 .map_err(|error| error.to_string())
         })),
-        save_file: Some(Arc::new(export_file)),
-        write: Some(Box::new(|path: &str, bytes: &[u8]| {
-            photocraft_format::atomic_write(Path::new(path), bytes).map_err(|error| error.to_string())
+        file_dialog: Some(saf.file_dialog()),
+        save_file: Some({
+            let bridge = saf.clone();
+            Arc::new(move |doc, path, settings, ctl| export_file(doc, path, settings, ctl, &bridge))
+        }),
+        write: Some(Box::new({
+            let bridge = saf.clone();
+            move |path: &str, bytes: &[u8]| {
+                photocraft_format::atomic_write(Path::new(path), bytes).map_err(|error| error.to_string())?;
+                bridge.sync_to_provider(Path::new(path))
+            }
         })),
         file_stamp: Some(Box::new(|path: &str| {
             let metadata = std::fs::metadata(path).ok()?;
