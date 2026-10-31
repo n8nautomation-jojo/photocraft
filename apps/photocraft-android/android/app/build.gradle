@@ -69,6 +69,7 @@ android {
 }
 
 dependencies {
+    implementation "androidx.appcompat:appcompat:1.7.0"
     // GameActivity 4.4.0 is the version supported by android-activity 0.6 / winit 0.30.
     implementation "androidx.games:games-activity:4.4.0"
 }
