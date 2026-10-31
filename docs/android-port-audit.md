@@ -195,3 +195,98 @@ These are environment blockers, not evidence that G1 source compilation fails. N
 - No Rust source, Cargo manifest, Cargo.lock, Android manifest, license, notice, or attribution file changed.
 - No APK/AAB was produced.
 - No PR was merged.
+
+
+## 8. G1 follow-up — source-only manifest and toolchain review (2026-10-31)
+
+This section was added after the G0 report was merged. It is a source inspection only; it does not replace an Android build.
+
+### 8.1 Verified Cargo package names and direct dependency shape
+
+The nine requested directories contain these actual Cargo package names:
+
+| Requested crate | Cargo package | Direct workspace dependencies / relevant target dependencies |
+|---|---|---|
+| raster | `photocraft-raster` | geom, color; `rayon` on all non-WASM targets |
+| color | `photocraft-color` | cms |
+| geom | `photocraft-geom` | none |
+| doc | `photocraft-doc` | geom, color, raster |
+| compose | `photocraft-compose` | geom, color, raster, doc, vector; `rayon` on all non-WASM targets |
+| psd | `photocraft-psd` | standalone; `thiserror`, `flate2`, optional `serde` |
+| codecs | `photocraft-codecs` | image, png, tiff, exr, half, serde_json, flate2, WebP/JPEG/JXL codec crates; `rayon` on all non-WASM targets |
+| paint | `photocraft-paint` | geom, color, raster; `rayon` on all non-WASM targets |
+| text | `photocraft-text` | geom, color, raster, doc, psd, parley, skrifa, flate2; `rayon` and parley complex-script support on all non-WASM targets |
+
+The transitive workspace closure therefore also includes at least `photocraft-cms` and `photocraft-vector`; a correct G1 run must let Cargo resolve and compile the full dependency graph, not just these nine manifests in isolation.
+
+### 8.2 Source-level observations (not compile results)
+
+- The inspected direct manifests do not declare Linux desktop system libraries, macOS frameworks, Windows APIs, or JNI dependencies for these nine requested packages.
+- Several crates intentionally use `cfg(not(target_arch = "wasm32"))` for Rayon. Android satisfies that condition; the Android build will therefore compile the multithreaded native code path rather than the single-threaded WASM path.
+- `photocraft-text` enables parley's `complex-scripts` on native non-WASM targets. Its special `system` font backend is enabled only for macOS; Android will use the shared font-loading path, which still requires physical-device validation with bundled and user-imported fonts.
+- `photocraft-psd` is intentionally standalone, with no workspace dependencies.
+- `photocraft-codecs` has no default optional features. Its `heif` feature adds the optional pure-Rust `photocraft-heif` decoder; the application-level `heif` feature forwards to it. Its separate `avif` feature enables AVIF encoding through the image crate. These features must be tested explicitly when they are part of the Android distribution configuration; they must not be silently removed to make a build pass.
+- The workspace pins `flate2` with the `zlib-rs` backend, not a system zlib dependency.
+- No Android target build, target-specific Cargo resolution, or native linker invocation was possible. Thus none of the above proves compatibility; transitive build scripts and target-specific code may still fail.
+
+### 8.3 Verified eframe/winit Android compatibility contract
+
+The current lockfile resolves:
+
+- `eframe 0.37.0` from the workspace's pinned egui git revision;
+- `winit 0.30.13` from the workspace's pinned winit git revision;
+- `android-activity 0.6.1` in winit's dependency graph.
+
+The eframe 0.37 feature catalogue exposes `android-game-activity` by forwarding to `egui-winit/android-game-activity`. The pinned winit 0.30 line requires android-activity 0.6. Winit documents that the glue crate version must match and recommends using its re-exported activity API rather than adding a second direct version of `android-activity`.
+
+Implications for the implementation phase:
+
+1. Enable the eframe `android-game-activity` feature only in the Android build configuration.
+2. Do not add an independent incompatible `android-activity` dependency.
+3. Inspect the pinned egui/winit source revision before writing the Android entry point; public latest docs are useful for the contract, but the pinned source is authoritative.
+4. Package the Android shared library with the expected `cdylib` entry point and verify the generated manifest and Activity superclass.
+5. Keep any Kotlin/Java code to the thin GameActivity integration layer and SAF/lifecycle bridge required by the product brief.
+
+References:
+- [eframe 0.37.0 feature catalogue](https://docs.rs/crate/eframe/0.37.0/features)
+- [winit 0.30.13 Android platform documentation](https://docs.rs/winit/0.30.13/winit/platform/android/)
+- [cargo-ndk usage and supported targets](https://docs.rs/crate/cargo-ndk/latest)
+
+### 8.4 Reproducible G1 runner recipe
+
+On a Linux or macOS runner with Android Studio/NDK installed, record the exact installed NDK revision and use the repository's pinned Rust 1.95 toolchain:
+
+```sh
+rustup toolchain install 1.95.0 --profile minimal
+rustup target add --toolchain 1.95.0 aarch64-linux-android
+cargo +1.95.0 install cargo-ndk --locked
+
+# Set this to the exact installed NDK directory; do not use a guessed version.
+export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/<installed-ndk-version>"
+
+rustc +1.95.0 --version --verbose
+cargo +1.95.0 --version
+cargo ndk --version
+test -d "$ANDROID_NDK_HOME"
+
+cargo +1.95.0 metadata --locked --format-version 1 > /tmp/photocraft-cargo-metadata.json
+cargo +1.95.0 tree --locked --target aarch64-linux-android -e features \
+  -p photocraft-raster -p photocraft-color -p photocraft-geom \
+  -p photocraft-doc -p photocraft-compose -p photocraft-psd \
+  -p photocraft-codecs -p photocraft-paint -p photocraft-text
+
+cargo +1.95.0 ndk -t arm64-v8a check --locked \
+  -p photocraft-raster -p photocraft-color -p photocraft-geom \
+  -p photocraft-doc -p photocraft-compose -p photocraft-psd \
+  -p photocraft-codecs -p photocraft-paint -p photocraft-text
+```
+
+Run optional codec-feature configurations separately when they are intended for the shipped Android product, and capture the exact command and resolved feature graph. Do not change `Cargo.toml` to hide a failing dependency. Record the first error, trace its originating crate/build script, and stop G1 if a required feature is unsupported.
+
+The exact Cargo subcommand invocation above must be confirmed against the installed cargo-ndk version by capturing `cargo ndk --help`; do not assume an old cargo-ndk syntax.
+
+### 8.5 Current G1 status remains blocked
+
+This static review found no obvious platform-specific desktop dependency in the nine direct crate manifests, but it cannot establish target compatibility. The local execution environment still has no `rustc`, `cargo`, `cargo-ndk`, NDK, or GitHub network access. The fork has no Android build workflow and returned no Actions runs for the merged audit commit.
+
+**G1 remains BLOCKED — not passed, not failed.** No source implementation work should proceed under the gate sequence until the above command has been run on a provisioned runner and all required packages compile successfully.
