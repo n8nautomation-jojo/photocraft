@@ -48,9 +48,10 @@ class PhotoCraftActivity : GameActivity() {
     private var baseSurfaceMargins: SurfaceMargins? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Set edge-to-edge before GameActivity creates and measures its native SurfaceView.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         super.onCreate(savedInstanceState)
 
-        WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
 
