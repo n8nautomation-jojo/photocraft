@@ -12,7 +12,7 @@ use jni::{
     vm::JavaVM,
     objects::{JObject, JString},
     refs::Global,
-    sys::{jlong, jobject, jstring},
+    sys::{jint, jlong, jobject, jstring},
 };
 use photocraft_ui_egui::{
     FileDialogAnswer, FileDialogFn, FileDialogReply, FileDialogRequest,
@@ -287,6 +287,20 @@ pub extern "system" fn Java_ai_storyteller_photocraft_PhotoCraftActivity_nativeO
         Ok(())
     });
     let _ = outcome.resolve::<jni::errors::ThrowRuntimeExAndDefault>();
+}
+
+
+/// Native callback for Android Activity lifecycle transitions.
+///
+/// SAFETY: the exported JNI name and signature match the private native method declared by
+/// PhotoCraftActivity. This callback does not retain or dereference any borrowed JNI reference.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_ai_storyteller_photocraft_PhotoCraftActivity_nativeOnLifecycleEvent(
+    _env: jni::EnvUnowned<'_>,
+    _activity: jobject,
+    event: jint,
+) {
+    super::lifecycle::dispatch(event);
 }
 
 #[cfg(test)]
