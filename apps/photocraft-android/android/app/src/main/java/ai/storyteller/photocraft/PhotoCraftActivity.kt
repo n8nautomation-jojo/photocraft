@@ -5,7 +5,6 @@ import android.content.Intent
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
-import android.view.View
 import android.provider.OpenableColumns
 import android.view.View
 import android.webkit.MimeTypeMap
