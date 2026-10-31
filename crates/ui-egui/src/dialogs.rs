@@ -589,58 +589,70 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
         // Photoshop doesn't dim the window behind dialogs: previews must be judged at true contrast.
         let web = fields.contains_key("__web");
         let web_popup_open = web && egui::Popup::is_any_open(ctx);
+        // Compact phone dialogs are content-sized and cannot retain a desktop resize/fixed size.
+        let phone_layout = crate::responsive::compact(ctx);
         let resizable = resizable_dialog(&fields);
-        // Curves reopens at the size it was left at (#8984).
+        // Curves reopens at the size it was left at (#8984) on tablet and desktop.
         let remembered = if is_curves(&fields) { ctx.data_mut(|m| m.get_persisted::<egui::Vec2>(size_id(place))) } else { None };
-        let resize = resizable.map(|size| {
-            let min = resizable_min(&fields);
-            (remembered.unwrap_or(size), min, resizable_max(ctx, &fields, min))
-        });
+        let resize = if phone_layout {
+            None
+        } else {
+            resizable.map(|size| {
+                let min = resizable_min(&fields);
+                (remembered.unwrap_or(size), min, resizable_max(ctx, &fields, min))
+            })
+        };
         let mut given = None;
-        let fixed = (d.kind == DialogKind::LayerStyle)
+        let fixed = (!phone_layout && d.kind == DialogKind::LayerStyle)
             .then(|| egui::vec2(800.0, 550.0).min((ctx.content_rect().size() - egui::vec2(40.0, 40.0)).max(egui::vec2(640.0, 360.0))));
         let modal = show_modal(modal, ctx, id, resize, fixed, interactive, |ui| {
             sizing = ui.is_sizing_pass();
             let available = ui.available_size();
             given = Some(available);
-            // A dialog of a few short fields (`__compact`, Fit Image) is narrower (#4673): the title
-            // rule and the button row fill the width they are given, so it needs its own maximum too.
+            // A few short-field dialogs (Fit Image, etc.) remain naturally narrow.
             let compact = d.fields.contains_key("__compact");
-            // The curve editor's graph is as wide as the dialog lets it be (#5113, #8984).
             let curves = is_curves(&fields);
-            if !compact {
-                ui.set_min_width(if curves { 300.0 } else { 380.0 });
-            }
-            // A resizable dialog's contents fill its resizable area (#7420), the others the window.
-            let room = if resizable.is_some() { available.x } else { (ctx.content_rect().width() - 48.0).max(380.0) };
-            let wide = crate::prefs_ui::width(&d.fields, room);
-            if let Some(w) = wide {
-                ui.set_min_width(w.min(460.0));
-            }
-            if d.kind == DialogKind::NewDocument {
-                ui.set_min_width(800.0);
-            }
-            // The About window: room for the contributor table, the same width on every tab.
-            let about_tabs = d.kind == DialogKind::About && d.fields.get("systemInfo").and_then(Value::as_bool) != Some(true);
-            if about_tabs {
-                ui.set_min_width(700.0);
-            }
-            ui.set_max_width(wide.unwrap_or_else(|| default_max_width(&d, compact, curves, about_tabs, available.x)));
-            if web || fixed.is_some() {
-                ui.set_max_width(available.x);
-                ui.set_min_size(available);
-            } else if let Some(w) = crate::file_ui::dialog_width(&d.fields) {
-                ui.set_min_width(w);
-                ui.set_max_width(w);
-            }
-            // Duplicate Layer… is a fixed small grid (labels + 260 pt fields ≈ 352 pt):
-            // the generic 380 pt minimum left a dead strip on its right.
-            if crate::duplicate_layer_ui::owns(&d.fields) {
-                ui.set_min_width(360.0);
-                ui.set_max_width(360.0);
-            }
-            if color_picker {
-                ui.set_width(crate::color_picker_ui::content_width(ui));
+            if phone_layout {
+                // Keep the whole frame, not just the content widgets, inside the safe viewport.
+                // Children may request desktop widths (New Document, About, Export); the phone
+                // branch deliberately ignores those minimums and lets the body scroll vertically.
+                let max_width = (ctx.content_rect().width() - 24.0).max(160.0);
+                ui.set_min_width(max_width.min(220.0));
+                ui.set_max_width(max_width);
+            } else {
+                if !compact {
+                    ui.set_min_width(if curves { 300.0 } else { 380.0 });
+                }
+                // A resizable dialog's contents fill its resizable area (#7420), the others the window.
+                let room = if resizable.is_some() { available.x } else { (ctx.content_rect().width() - 48.0).max(380.0) };
+                let wide = crate::prefs_ui::width(&d.fields, room);
+                if let Some(w) = wide {
+                    ui.set_min_width(w.min(460.0));
+                }
+                if d.kind == DialogKind::NewDocument {
+                    ui.set_min_width(800.0);
+                }
+                // The About window: room for the contributor table, the same width on every tab.
+                let about_tabs = d.kind == DialogKind::About && d.fields.get("systemInfo").and_then(Value::as_bool) != Some(true);
+                if about_tabs {
+                    ui.set_min_width(700.0);
+                }
+                ui.set_max_width(wide.unwrap_or_else(|| default_max_width(&d, compact, curves, about_tabs, available.x)));
+                if web || fixed.is_some() {
+                    ui.set_max_width(available.x);
+                    ui.set_min_size(available);
+                } else if let Some(w) = crate::file_ui::dialog_width(&d.fields) {
+                    ui.set_min_width(w);
+                    ui.set_max_width(w);
+                }
+                // Duplicate Layer… is a fixed small grid (labels + 260 pt fields ≈ 352 pt).
+                if crate::duplicate_layer_ui::owns(&d.fields) {
+                    ui.set_min_width(360.0);
+                    ui.set_max_width(360.0);
+                }
+                if color_picker {
+                    ui.set_width(crate::color_picker_ui::content_width(ui));
+                }
             }
             let label = egui::Label::new(egui::RichText::new(&title).font(crate::theme::semibold(15.0))).selectable(false);
             let t = if crate::color_picker_ui::owns(&fields) { ui.add_sized(egui::vec2(ui.available_width(), 22.0), label).rect } else { ui.add(label).rect };
@@ -658,13 +670,27 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
             ui.add_space(4.0);
             crate::widgets::hairline(ui);
             ui.add_space(8.0);
-            crate::field_tab::begin(ui.ctx());
-            if let Some(done) = dialog_body(app, ui, &d, &mut fields, id, interactive) {
-                outcome = Some(done);
-            }
-            crate::field_tab::end(ui.ctx(), tab);
-            if let Some(Value::String(key)) = fields.remove(BROWSE_FIELD) {
-                browse_field(app, d.id, &fields, &key);
+            let mut render_body = |body_ui: &mut egui::Ui| {
+                crate::field_tab::begin(body_ui.ctx());
+                if let Some(done) = dialog_body(app, body_ui, &d, &mut fields, id, interactive) {
+                    outcome = Some(done);
+                }
+                crate::field_tab::end(body_ui.ctx(), tab);
+                if let Some(Value::String(key)) = fields.remove(BROWSE_FIELD) {
+                    browse_field(app, d.id, &fields, &key);
+                }
+            };
+            if phone_layout {
+                // Keep the title and confirmation controls reachable while long forms are swiped.
+                // ScrollArea shrinks to its content when it fits, so short dialogs remain one-screen.
+                let body_height = (ctx.content_rect().height() - DIALOG_CHROME - 16.0).max(72.0);
+                egui::ScrollArea::vertical()
+                    .id_salt(id.with("phone-dialog-body"))
+                    .auto_shrink([false, true])
+                    .max_height(body_height)
+                    .show(ui, |body_ui| render_body(body_ui));
+            } else {
+                render_body(ui);
             }
             if d.kind == DialogKind::LayerStyle || crate::guide_layout_ui::owns(&fields) || crate::brush_preset_dialog::owns(&fields) {
                 // These dialogs own their right-side actions and validate Enter themselves.
@@ -704,7 +730,7 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
             ctx.data_mut(|m| m.insert_persisted(size_id(place), size));
         }
         // Pin once laid out at its real size (the first frame is an invisible sizing pass).
-        if !sizing && (web || fixed.is_some() || pinned.is_none() || drag != egui::Vec2::ZERO) {
+        if !sizing && (phone_layout || web || fixed.is_some() || pinned.is_none() || drag != egui::Vec2::ZERO) {
             let screen = ctx.content_rect();
             // Keep the whole dialog (and so its title bar) on screen.
             let room = (screen.size() - modal.response.rect.size()).max(egui::Vec2::ZERO);
