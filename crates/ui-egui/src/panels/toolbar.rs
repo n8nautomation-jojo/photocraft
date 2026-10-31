@@ -663,6 +663,9 @@ pub fn mobile_toolbar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                         }
                     });
                 });
+                if let Some(index) = app.session.active_index() {
+                    ui.label(format!("{:.0}%", app.ui.views[index].zoom * 100.0));
+                }
                 if ui.add_sized(vec2(fit_width, 48.0), egui::Button::new(tl!("Fit"))).clicked()
                     && let Some(index) = app.session.active_index()
                 {
