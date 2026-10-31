@@ -601,7 +601,7 @@ fn show_phone(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                     .id_salt("phone-panel-selector")
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
-                        ui.horizontal(|ui| {
+                        crate::direction::horizontal_centered(ui, |ui| {
                             ui.spacing_mut().item_spacing.x = 4.0;
                             for (id, label) in PHONE_PANELS {
                                 let response = ui.add_sized(
