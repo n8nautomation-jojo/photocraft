@@ -114,8 +114,9 @@ mod tests {
         let events = LifecycleEvents::new();
         lock(&events.queue).push_back(OsEvent::Suspend);
         lock(&events.queue).push_back(OsEvent::Resume);
+        lock(&events.queue).push_back(OsEvent::MemoryPressure);
         let mut poll = events.os_events();
-        assert_eq!(poll(), vec![OsEvent::Suspend, OsEvent::Resume]);
+        assert_eq!(poll(), vec![OsEvent::Suspend, OsEvent::Resume, OsEvent::MemoryPressure]);
         assert!(poll().is_empty());
     }
 }
