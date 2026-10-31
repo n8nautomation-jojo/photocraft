@@ -1,5 +1,5 @@
 use super::options_bar::reveal_focused_control;
-use super::{Align2, Color32, PhotocraftApp, Pos2, Rect, Sense, Stroke, StrokeKind, Tokens, Tool, c32, icons, json, pos2, vec2};
+use super::{Align2, Color32, PhotocraftApp, Pos2, Rect, Sense, Stroke, StrokeKind, Tokens, Tool, c32, icons, json, pos2, vec2, widgets};
 
 // ----------------------------------------------------------------------------- toolbar
 
@@ -594,6 +594,14 @@ pub fn mobile_toolbar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                     crate::panels::toggle_phone_panels(ui.ctx(), app.ui.panels.dock);
                 }
                 widgets::vline(ui, 34.0);
+                let hidden: Vec<Tool> = app
+                    .session
+                    .prefs()
+                    .toolbar
+                    .hidden
+                    .iter()
+                    .filter_map(|name| Tool::from_name(name))
+                    .collect();
                 let more_width = 64.0;
                 let fit_width = 52.0;
                 let shelf_width = (ui.available_width() - more_width - fit_width - 12.0).max(0.0);
@@ -620,6 +628,9 @@ pub fn mobile_toolbar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                                 Tool::Zoom,
                             ];
                             for &tool in QUICK {
+                                if hidden.contains(&tool) {
+                                    continue;
+                                }
                                 let selected = app.ui.tool == tool;
                                 let response = icons::button(ui, icons::tool_icon(tool), 48.0, selected, tl!(tool.label()));
                                 if response.clicked() {
@@ -632,10 +643,10 @@ pub fn mobile_toolbar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                 egui::Popup::menu(&more).show(|ui| {
                     ui.set_min_width(240.0);
                     egui::ScrollArea::vertical().max_height(420.0).show(ui, |ui| {
-                        for section in TOOL_SECTIONS {
+                        for section in visible_sections(&app.session.prefs().toolbar.hidden) {
                             ui.horizontal_wrapped(|ui| {
-                                for slot in *section {
-                                    for &tool in *slot {
+                                for (_, slot) in section {
+                                    for tool in slot {
                                         let selected = app.ui.tool == tool;
                                         let response = ui.add_sized(
                                             vec2(108.0, 42.0),
