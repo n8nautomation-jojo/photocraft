@@ -60,8 +60,9 @@ editor, command system, and wgpu canvas:
   presentation state. The saved desktop/tablet workspace tree is not rewritten by phone rotation
   or by opening/closing the drawer.
 - Wide tablet and desktop viewports retain the existing vertical toolbar, side dock, and workspace
-  docking behavior. The responsive breakpoints and phone drawer behavior have unit/UI tests in the
-  repository, but those tests have not yet been executed in an Android build environment.
+  docking behavior. The responsive breakpoints, phone drawer, and compact menu launcher have unit/UI tests in the
+  repository, but those tests have not yet been executed because the available environment lacks
+  the Rust toolchain.
 
 The folder picker and Android clipboard are not connected yet. The SAF and lifecycle bridges have
 not been compiled or tested on a device. Provider permission policies differ, so an unavailable
