@@ -1,19 +1,19 @@
 package ai.storyteller.photocraft
 
 import android.app.Activity
-import android.graphics.Rect
 import android.content.Intent
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
-import android.widget.FrameLayout
 import android.provider.OpenableColumns
+import android.view.View
 import android.webkit.MimeTypeMap
+import android.widget.FrameLayout
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import com.google.androidgamesdk.GameActivity
 import org.json.JSONArray
 import org.json.JSONObject
