@@ -144,6 +144,54 @@ pub(crate) fn save_for_recovery(app: &mut PhotocraftApp) -> Result<(), String> {
     if failed.is_empty() { Ok(()) } else { Err(format!("couldn't save for recovery: {}", failed.join("; "))) }
 }
 
+/// Release view-only caches that can be regenerated from the authoritative document and
+/// current preferences. This is deliberately narrower than engine tile eviction: document
+/// pixels, undo history, active tool gestures, and background jobs remain untouched.
+pub(crate) fn trim_reconstructible_caches(app: &mut PhotocraftApp) -> usize {
+    let released = app.canvases.len()
+        + app.navigator_textures.len()
+        + app.display_memo.len()
+        + app.navigator_gpu.len()
+        + app.navigator_plain.len()
+        + app.thumbs.len()
+        + app.snapshot_thumbs.len()
+        + app.bounds_cache.len()
+        + app.channel_views.len()
+        + usize::from(app.proxy.is_some())
+        + usize::from(app.proxy_uploaded.is_some())
+        + usize::from(app.channel_thumbs.is_some())
+        + usize::from(app.outline_cache.is_some())
+        + usize::from(app.info_samplers.is_some())
+        + usize::from(app.info_sample.is_some())
+        + usize::from(app.tone_hist.is_some())
+        + usize::from(app.doc_hist.is_some())
+        + usize::from(app.doc_hist_preview.is_some());
+
+    app.canvases.clear();
+    app.navigator_textures.clear();
+    app.display_memo.clear();
+    app.navigator_gpu.clear();
+    app.navigator_plain.clear();
+    app.thumbs.clear();
+    app.thumb_frames.clear();
+    app.snapshot_thumbs.clear();
+    app.thumb_documents.clear();
+    app.bounds_cache.clear();
+    app.proxy = None;
+    app.proxy_uploaded = None;
+    app.channel_thumbs = None;
+    app.channel_views.clear();
+    app.outline_cache = None;
+    app.info_samplers = None;
+    app.info_sample = None;
+    app.tone_hist = None;
+    app.doc_hist = None;
+    app.doc_hist_preview = None;
+    app.hist_uncached = None;
+    app.kept.clear();
+    released
+}
+
 /// Drop the GPU canvas after `fault`: free its resources, send every view through the CPU
 /// path, record why, and tell the user. Documents are untouched.
 pub fn fall_back(app: &mut PhotocraftApp, fault: &photocraft_gpu::Fault) {
