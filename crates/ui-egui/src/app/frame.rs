@@ -227,6 +227,15 @@ impl PhotocraftApp {
     /// wait modal took the frame (its input, IME and window check already handled).
     fn ui_body(&mut self, ui: &mut egui::Ui) -> bool {
         let ctx = ui.ctx().clone();
+        let compact = crate::responsive::compact(&ctx);
+        if compact {
+            // Most egui controls inherit this minimum; specialized bars remain horizontally
+            // scrollable, while implicit buttons/fields become easier to hit with a finger.
+            let minimum = ui.spacing().interact_size.max(egui::vec2(48.0, 48.0));
+            ui.spacing_mut().interact_size = minimum;
+            ui.spacing_mut().button_padding = egui::vec2(10.0, 8.0);
+            ui.spacing_mut().item_spacing = egui::vec2(8.0, 6.0);
+        }
         // A text field's right-click menu, before any field is drawn (text_field_menu.rs).
         text_field_menu::show(&ctx);
         // The wheel goes to a focused value field before the canvas or a panel sees it (#5473).
@@ -278,14 +287,18 @@ impl PhotocraftApp {
         if (chrome && self.ui.panels.options_bar) || tabbed_in {
             panels::options_bar(self, ui);
         }
-        if chrome && self.ui.panels.status_bar {
+        if chrome && self.ui.panels.status_bar && !compact {
             panels::status_bar(self, ui);
         }
-        if (chrome && self.ui.panels.toolbar) || tabbed_in {
+        if ((chrome && self.ui.panels.toolbar) || tabbed_in) && !compact {
             panels::toolbar(self, ui);
         }
-        // craft-ui's layout holds the canvas as its protected `canvas` panel.
-        let docking = (chrome && self.ui.panels.dock) || tabbed_in;
+        if compact && (chrome || tabbed_in) {
+            panels::mobile_toolbar(self, ui);
+        }
+        // The compact workspace keeps the protected canvas full width and presents panels as a
+        // switchable bottom drawer. It must not instantiate the desktop side dock on a phone.
+        let docking = if compact { chrome || tabbed_in } else { (chrome && self.ui.panels.dock) || tabbed_in };
         if docking {
             panels::dock_area(self, ui);
         } else {

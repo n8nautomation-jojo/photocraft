@@ -211,3 +211,62 @@ fn switch_on_hover(ctx: &egui::Context, buttons: &[egui::Response]) {
         ctx.request_repaint();
     }
 }
+
+
+/// Single-entry menu launcher for compact viewports. It keeps every existing command and nested
+/// submenu, while avoiding ten top-level titles competing for a phone's title-bar width.
+pub fn mobile_menu_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) -> f32 {
+    let items = menu_items(app);
+    let mut clicked: Option<String> = None;
+    let mut nav = crate::menu_nav::Nav::load(ui.ctx());
+    let response = ui.add_sized(egui::vec2(72.0, 48.0), egui::Button::new(crate::i18n::t("Menu")));
+    egui::Popup::menu(&response).show(|ui| {
+        ui.set_min_width(240.0);
+        egui::ScrollArea::vertical().max_height(520.0).show(ui, |ui| {
+            for top in TOP_MENUS {
+                let mine: Vec<&MenuItem> = items.iter().filter(|item| item.path.first().map(String::as_str) == Some(top)).collect();
+                ui.menu_button(crate::i18n::t(top), |ui| {
+                    ui.set_min_width(240.0);
+                    if top == "Help" {
+                        help_search(ui, &items, false, &mut clicked, &mut nav);
+                        render_level_rows(ui, &mine, 1, &mut clicked, &mut nav);
+                    } else {
+                        render_level(ui, &mine, 1, &mut clicked, &mut nav);
+                    }
+                });
+            }
+        });
+    });
+    nav.store(ui.ctx());
+    if let Some(id) = clicked {
+        let ctx = ui.ctx().clone();
+        if let Err(error) = invoke(app, &ctx, &id, json!({})) {
+            app.ui.status = error;
+            app.ui.status_error = true;
+        }
+    }
+    if crate::direction::is_rtl() { response.rect.left() } else { response.rect.right() }
+}
+
+
+#[cfg(test)]
+mod mobile_tests {
+    use super::*;
+
+    #[test]
+    fn compact_menu_launcher_is_one_phone_sized_control() {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        let ctx = egui::Context::default();
+        let mut edge = 0.0;
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(393.0, 52.0))),
+                ..Default::default()
+            },
+            |ui| edge = mobile_menu_bar(&mut app, ui),
+        );
+        output.textures_delta.clear();
+        assert!((edge - 72.0).abs() < 0.1, "the compact launcher has a stable 72-point width: {edge}");
+        assert_eq!(TOP_MENUS.len(), 10, "all original menu groups remain available");
+    }
+}

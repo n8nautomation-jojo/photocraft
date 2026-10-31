@@ -40,11 +40,35 @@ more severe callbacks, PhotoCraft checkpoints dirty documents and drops rebuilda
 thumbnail, histogram, LUT and GPU-compositor caches. The CPU document surfaces, undo history and
 active editing state are not evicted by this first memory-pressure response.
 
+The Android host now has a phone-first responsive workspace while keeping the existing Rust
+editor, command system, and wgpu canvas:
+
+- Layout selection uses the live egui content viewport, not a device-brand/model check. A viewport
+  narrower than 720 points or shorter than 460 points uses the compact workspace, so portrait and
+  short-landscape phones both adapt, including resizable windows.
+- The desktop vertical toolbar and narrow side dock are replaced by a horizontal touch tool shelf
+  with 48-point targets, a horizontally scrollable set of common tools, a name-labelled
+  "More" menu for every non-hidden toolbar tool, a Panels toggle, zoom percentage and Fit action.
+- The ten desktop top-level menus collapse into one 48-point Menu launcher on compact viewports;
+  each original menu and its nested commands remain available inside a vertically scrollable menu.
+- Panels are presented in a full-width bottom drawer. Its panel selector scrolls horizontally and
+  can switch between Layers, Channels, Paths, Properties, Adjustments, Color, Swatches, Brushes,
+  History, Actions, Navigator, Histogram, Info, Character, Paragraph, Gradients, Patterns and
+  Layer Comps. Closing the drawer returns the space to the canvas.
+- Portrait starts with the drawer open when the dock preference is enabled; short landscape starts
+  with it closed to prioritize canvas height. The selection and open/closed state are temporary
+  presentation state. The saved desktop/tablet workspace tree is not rewritten by phone rotation
+  or by opening/closing the drawer.
+- Wide tablet and desktop viewports retain the existing vertical toolbar, side dock, and workspace
+  docking behavior. The responsive breakpoints, phone drawer, and compact menu launcher have unit/UI tests in the
+  repository, but those tests have not yet been executed because the available environment lacks
+  the Rust toolchain.
+
 The folder picker and Android clipboard are not connected yet. The SAF and lifecycle bridges have
 not been compiled or tested on a device. Provider permission policies differ, so an unavailable
 persistent grant or failed provider write is reported as a save error rather than silently marking
-the document saved. Stop/low-memory/thermal/device-loss handling, tablet/phone layout adaptation,
-and process-death/force-stop validation remain open tasks.
+the document saved. Thermal/device-loss handling and process-death/force-stop validation remain
+open tasks; touch-target verification and visual tuning on real phones and tablets are also pending.
 
 ## Toolchain
 
@@ -93,5 +117,6 @@ ignored by Git. They must remain local build artifacts.
    device-loss handling plus process-death/force-stop and app-switching tests.
 5. Measure native memory with a 12 MP image and 10 layers on a real Android device; validate the
    configured GPU budget against actual device RAM.
-6. Verify mouse primary/secondary, hover, stylus, keyboard shortcuts, Space+drag and wheel input on
-   a tablet and a phone. Adapt the existing panels for tablet landscape and compact phone layouts.
+6. Validate the compact toolbar, panel drawer and touch targets on real phones in portrait and
+   landscape, then verify mouse primary/secondary, hover, stylus, keyboard shortcuts, Space+drag
+   and wheel input on both phones and tablets. Tune the tablet breakpoints from those measurements.

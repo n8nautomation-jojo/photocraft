@@ -11,6 +11,7 @@ pub fn title_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     let custom = app.custom_titlebar;
     let system = system_title_bar(app);
+    let compact = crate::responsive::compact(ui.ctx());
     // The caption buttons' room at each end (`titlebar`); a side with buttons has no margin.
     let (caption_left, caption_right) = crate::titlebar::reserved(app, ui.ctx());
     let left = if cfg!(target_os = "macos") && app.integrated_titlebar {
@@ -22,7 +23,7 @@ pub fn title_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     };
     let right = if caption_right > 0.0 { 0 } else { 10 };
     let bar = egui::Panel::top("title_bar")
-        .exact_size(crate::titlebar::bar_height(app, ui.ctx(), if t.pro { 32.0 } else { 38.0 }))
+        .exact_size(crate::titlebar::bar_height(app, ui.ctx(), if compact { 52.0 } else if t.pro { 32.0 } else { 38.0 }))
         .frame(egui::Frame::NONE.fill(t.chrome).inner_margin(egui::Margin { left, right, top: 0, bottom: 0 }))
         .show(ui, |ui| {
             let full = ui.max_rect();
@@ -61,19 +62,23 @@ pub fn title_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                 if lead > 0.0 {
                     ui.add_space(lead + 4.0);
                 }
-                if !system {
+                if !system && !compact {
                     let side = if t.pro { 18.0 } else { 20.0 };
                     let (mark, _) = ui.allocate_exact_size(vec2(side, side), Sense::hover());
                     crate::brand::paint_mark(ui, mark);
                     ui.add_space(6.0);
                 }
-                // With the macOS menu bar the menus are at the top of the screen instead. Either way
-                // this is the menus' inner edge, facing the title.
+                // Compact viewports use one Menu launcher; wide viewports keep Photoshop's ten
+                // top-level menu titles. A native desktop menu remains owned by the platform.
                 let menus_end = if app.services.native_menu.is_some() {
                     if rtl { ui.cursor().right() } else { ui.cursor().left() }
+                } else if compact {
+                    crate::menus::mobile_menu_bar(app, ui)
                 } else {
                     crate::menus::menu_bar(app, ui)
                 };
+                // The menus and the far-end controls are laid out first; their free gap is
+                // reserved for dragging the desktop title bar.
                 // The menu bar takes the whole row, so the far-end group gets its own rect: from
                 // the menus to the bar's end, or to the caption buttons.
                 let group = if rtl {
@@ -129,7 +134,7 @@ pub fn title_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                 free = if rtl { (controls_end, menus_end) } else { (menus_end, controls_end) };
             });
             ui.ctx().data_mut(|d| d.insert_temp(span_id, free));
-            if system {
+            if system || compact {
                 return;
             }
             let font = theme::medium(13.0);

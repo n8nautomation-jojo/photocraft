@@ -46,6 +46,7 @@ pub mod panels;
 pub mod preset_files_ui;
 pub mod proxy;
 pub mod render_path;
+mod responsive;
 pub mod screenshot;
 pub mod state;
 pub mod texel_guard;
