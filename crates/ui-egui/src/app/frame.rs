@@ -227,6 +227,15 @@ impl PhotocraftApp {
     /// wait modal took the frame (its input, IME and window check already handled).
     fn ui_body(&mut self, ui: &mut egui::Ui) -> bool {
         let ctx = ui.ctx().clone();
+        let compact = crate::responsive::compact(&ctx);
+        if compact {
+            // Most egui controls inherit this minimum; specialized bars remain horizontally
+            // scrollable, while implicit buttons/fields become easier to hit with a finger.
+            let minimum = ui.spacing().interact_size.max(egui::vec2(48.0, 48.0));
+            ui.spacing_mut().interact_size = minimum;
+            ui.spacing_mut().button_padding = egui::vec2(10.0, 8.0);
+            ui.spacing_mut().item_spacing = egui::vec2(8.0, 6.0);
+        }
         // A text field's right-click menu, before any field is drawn (text_field_menu.rs).
         text_field_menu::show(&ctx);
         // The wheel goes to a focused value field before the canvas or a panel sees it (#5473).
@@ -275,7 +284,6 @@ impl PhotocraftApp {
         if (chrome || tabbed_in) && self.ui.panels.menu_bar {
             panels::title_bar(self, ui);
         }
-        let compact = crate::responsive::compact(&ctx);
         if (chrome && self.ui.panels.options_bar) || tabbed_in {
             panels::options_bar(self, ui);
         }
