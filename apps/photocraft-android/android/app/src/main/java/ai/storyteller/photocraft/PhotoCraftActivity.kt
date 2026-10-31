@@ -25,6 +25,7 @@ class PhotoCraftActivity : GameActivity() {
         private const val BUFFER_BYTES = 64 * 1024
         private const val LIFECYCLE_PAUSED = 1
         private const val LIFECYCLE_RESUMED = 2
+        private const val LIFECYCLE_MEMORY_PRESSURE = 3
 
         init {
             System.loadLibrary("main")
@@ -339,6 +340,13 @@ class PhotoCraftActivity : GameActivity() {
     override fun onResume() {
         super.onResume()
         nativeOnLifecycleEvent(LIFECYCLE_RESUMED)
+    }
+
+    override fun onTrimMemory(level: Int) {
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            nativeOnLifecycleEvent(LIFECYCLE_MEMORY_PRESSURE)
+        }
+        super.onTrimMemory(level)
     }
 
     override fun onDestroy() {
