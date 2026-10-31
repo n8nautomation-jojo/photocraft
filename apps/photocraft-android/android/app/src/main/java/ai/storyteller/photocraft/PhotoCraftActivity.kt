@@ -187,10 +187,18 @@ class PhotoCraftActivity : GameActivity() {
 
         val files = JSONArray()
         val created = mutableListOf<File>()
+        val createdDirectories = mutableListOf<File>()
         try {
             uris.forEach { uri ->
                 val name = safeFileName(displayName(uri) ?: uri.lastPathSegment ?: "Imported file")
-                val destination = File(imports, "${UUID.randomUUID()}_$name")
+                // One document per directory lets Rust safely rekey a grant if PhotoCraft
+                // normalizes that document's extension (e.g. ".PSD" to ".psd").
+                val importDirectory = File(imports, UUID.randomUUID().toString())
+                if (!importDirectory.mkdirs()) {
+                    throw IOException("could not create a private import working directory")
+                }
+                createdDirectories += importDirectory
+                val destination = File(importDirectory, name)
                 val input = contentResolver.openInputStream(uri) ?: throw IOException("provider returned no input stream")
                 input.use { source ->
                     destination.outputStream().buffered(BUFFER_BYTES).use { target ->
@@ -208,6 +216,7 @@ class PhotoCraftActivity : GameActivity() {
             }
         } catch (error: Exception) {
             created.forEach { it.delete() }
+            createdDirectories.forEach { it.delete() }
             throw error
         }
         return JSONObject().put("kind", "open").put("files", files)
