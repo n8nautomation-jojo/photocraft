@@ -640,28 +640,36 @@ pub fn mobile_toolbar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                         });
                     });
                 let more = ui.add_sized(vec2(more_width, 48.0), egui::Button::new(tl!("More")));
+                let popup_viewport = ui.ctx().content_rect();
+                let popup_max_width = (popup_viewport.width() - 16.0).max(180.0);
+                let popup_max_height = (popup_viewport.height() - 16.0).max(96.0);
                 egui::Popup::menu(&more).show(|ui| {
-                    ui.set_min_width(240.0);
-                    egui::ScrollArea::vertical().max_height(420.0).show(ui, |ui| {
-                        for section in visible_sections(&app.session.prefs().toolbar.hidden) {
-                            ui.horizontal_wrapped(|ui| {
-                                for (_, slot) in section {
-                                    for tool in slot {
-                                        let selected = app.ui.tool == tool;
-                                        let response = ui.add_sized(
-                                            vec2(108.0, 48.0),
-                                            egui::Button::new(tl!(tool.label())).selected(selected),
-                                        );
-                                        if response.clicked() {
-                                            crate::tool_memory::select(app, tool);
-                                            ui.close();
+                    ui.set_min_width(popup_max_width.min(240.0));
+                    ui.set_max_width(popup_max_width);
+                    egui::ScrollArea::vertical()
+                        .id_salt("mobile-toolbar-more")
+                        .auto_shrink([false, true])
+                        .max_height(popup_max_height)
+                        .show(ui, |ui| {
+                            for section in visible_sections(&app.session.prefs().toolbar.hidden) {
+                                ui.horizontal_wrapped(|ui| {
+                                    for (_, slot) in section {
+                                        for tool in slot {
+                                            let selected = app.ui.tool == tool;
+                                            let response = ui.add_sized(
+                                                vec2(108.0, 48.0),
+                                                egui::Button::new(tl!(tool.label())).selected(selected),
+                                            );
+                                            if response.clicked() {
+                                                crate::tool_memory::select(app, tool);
+                                                ui.close();
+                                            }
                                         }
                                     }
-                                }
-                            });
-                            ui.separator();
-                        }
-                    });
+                                });
+                                ui.separator();
+                            }
+                        });
                 });
                 if let Some(index) = app.session.active_index() {
                     ui.label(format!("{:.0}%", app.ui.views[index].zoom * 100.0));
