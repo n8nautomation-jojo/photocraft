@@ -247,3 +247,26 @@ pub fn mobile_menu_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) -> f32 {
     }
     if crate::direction::is_rtl() { response.rect.left() } else { response.rect.right() }
 }
+
+
+#[cfg(test)]
+mod mobile_tests {
+    use super::*;
+
+    #[test]
+    fn compact_menu_launcher_is_one_phone_sized_control() {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        let ctx = egui::Context::default();
+        let mut edge = 0.0;
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(393.0, 52.0))),
+                ..Default::default()
+            },
+            |ui| edge = mobile_menu_bar(&mut app, ui),
+        );
+        output.textures_delta.clear();
+        assert!((edge - 72.0).abs() < 0.1, "the compact launcher has a stable 72-point width: {edge}");
+        assert_eq!(TOP_MENUS.len(), 10, "all original menu groups remain available");
+    }
+}
