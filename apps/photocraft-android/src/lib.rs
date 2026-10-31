@@ -7,3 +7,5 @@
 mod entrypoint;
 #[cfg(target_os = "android")]
 mod services;
+#[cfg(target_os = "android")]
+mod saf;
