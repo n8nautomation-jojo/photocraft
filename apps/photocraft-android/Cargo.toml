@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 eframe = { workspace = true, features = ["wgpu", "accesskit", "android-game-activity"] }
-photocraft-codecs = { workspace = true }
+photocraft-codecs = { workspace = true, features = ["heif"] }
 photocraft-doc = { workspace = true }
 photocraft-engine = { workspace = true }
 photocraft-format = { workspace = true }
