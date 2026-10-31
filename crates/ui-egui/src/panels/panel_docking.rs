@@ -567,6 +567,20 @@ const PHONE_PANELS: &[(&str, &str)] = &[
     ("layerComps", "Layer Comps"),
 ];
 
+/// Build the compact workspace tree without touching the user's saved docking workspace.
+fn phone_layout(panel: Option<&str>, panel_height: f32) -> Layout<String> {
+    let root = match panel {
+        Some(panel) => Node::Split {
+            axis: SplitAxis::Vertical,
+            size: SplitSize::FixedSecond(panel_height),
+            first: Box::new(Node::Tabs { panels: vec![CANVAS.to_owned()], active: 0 }),
+            second: Box::new(Node::Tabs { panels: vec![panel.to_owned()], active: 0 }),
+        },
+        None => Node::Tabs { panels: vec![CANVAS.to_owned()], active: 0 },
+    };
+    Layout { root: Some(root), floating: Vec::new() }
+}
+
 /// A temporary phone workspace: a protected canvas above one full-width panel. The selector and
 /// drawer are presentation state only; the desktop docking tree and its saved geometry are never
 /// rewritten when the device rotates or the viewport crosses a breakpoint.
@@ -604,18 +618,8 @@ fn show_phone(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
         ctx.data_mut(|data| data.insert_temp(phone_panel_id(), selected.clone()));
     }
 
-    let root = if open {
-        let panel_height = (ui.available_height() * 0.36).clamp(150.0, 250.0);
-        Node::Split {
-            axis: SplitAxis::Vertical,
-            size: SplitSize::FixedSecond(panel_height),
-            first: Box::new(Node::Tabs { panels: vec![CANVAS.to_owned()], active: 0 }),
-            second: Box::new(Node::Tabs { panels: vec![selected], active: 0 }),
-        }
-    } else {
-        Node::Tabs { panels: vec![CANVAS.to_owned()], active: 0 }
-    };
-    let layout = Layout { root: Some(root), floating: Vec::new() };
+    let panel_height = (ui.available_height() * 0.36).clamp(150.0, 250.0);
+    let layout = phone_layout(open.then_some(selected.as_str()), panel_height);
     let collapsed = std::collections::HashSet::new();
     let fillers = fillers(&layout);
     let card = std::collections::HashSet::new();
