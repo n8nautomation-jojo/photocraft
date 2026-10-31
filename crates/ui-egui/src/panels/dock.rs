@@ -11,7 +11,7 @@ use super::{PhotocraftApp, Stroke, Tokens, icons, pos2};
 /// docking layout, with the icon rail at the window's end edge in the Studio themes.
 pub fn dock_area(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
-    if app.ui.panels.rail && !t.pro {
+    if app.ui.panels.rail && !t.pro && !crate::responsive::compact(ui.ctx()) {
         rail(app, ui, &t);
     }
     egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| crate::panel_docking::show(app, ui));
@@ -24,7 +24,7 @@ pub fn dock_area(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
 pub(crate) fn canvas_panel(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     let backdrop = if app.ui.view.hides_chrome() { egui::Color32::BLACK } else { crate::prefs_ui::pasteboard_color(app).unwrap_or(t.canvas) };
-    if app.ui.panels.rail && t.pro {
+    if app.ui.panels.rail && t.pro && !crate::responsive::compact(ui.ctx()) {
         rail(app, ui, &t);
     }
     egui::CentralPanel::default().frame(egui::Frame::NONE.fill(backdrop)).show(ui, |ui| crate::canvas::document_area(app, ui));
