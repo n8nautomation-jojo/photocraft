@@ -17,7 +17,15 @@ pub fn android_main(android_app: AndroidApp) {
         return;
     };
 
-    let services = match super::services::create(data_root) {
+    let saf = match super::saf::SafBridge::new(android_app.clone(), &data_root.join("PhotoCraft")) {
+        Ok(saf) => saf,
+        Err(error) => {
+            log::error!("Could not initialize Android document access: {error}");
+            return;
+        }
+    };
+
+    let services = match super::services::create(data_root, saf) {
         Ok(services) => services,
         Err(error) => {
             log::error!("Could not initialize PhotoCraft Android storage: {error}");
