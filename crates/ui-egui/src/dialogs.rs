@@ -616,7 +616,7 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
                 // Keep the whole frame, not just the content widgets, inside the safe viewport.
                 // Children may request desktop widths (New Document, About, Export); the phone
                 // branch deliberately ignores those minimums and lets the body scroll vertically.
-                let max_width = (ctx.content_rect().width() - 24.0).max(160.0);
+                let max_width = (ctx.content_rect().width() - 24.0).max(0.0);
                 ui.set_min_width(max_width.min(220.0));
                 ui.set_max_width(max_width);
             } else {
