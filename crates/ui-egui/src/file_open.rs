@@ -14,6 +14,11 @@ use photocraft_engine::file_cmds::{is_template, untitled_name};
 pub enum OsEvent {
     /// Open these files (absolute paths), e.g. a Finder double-click.
     Open(Vec<String>),
+    /// The platform is moving the app out of the foreground. Snapshot dirty documents to crash
+    /// recovery; this does not close the session or replace the user's open documents.
+    Suspend,
+    /// The platform has brought the app back to the foreground.
+    Resume,
     /// Quit (e.g. the Dock menu's Quit, log out): goes through the normal close path, which asks
     /// about unsaved changes.
     Quit,
@@ -362,6 +367,14 @@ impl PhotocraftApp {
                     ctx.send_viewport_cmd(raise);
                     ctx.request_repaint();
                 }
+                OsEvent::Suspend => match crate::gpu_status::save_for_recovery(self) {
+                    Ok(()) => log::info!("platform suspension: dirty documents are saved for recovery"),
+                    Err(error) => {
+                        log::error!("platform suspension recovery failed: {error}");
+                        notices::error(self, format!("Could not save crash recovery before backgrounding: {error}"));
+                    }
+                },
+                OsEvent::Resume => ctx.request_repaint(),
                 OsEvent::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
             }
         }

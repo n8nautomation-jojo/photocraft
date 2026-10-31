@@ -106,7 +106,7 @@ pub const RECOVERY_RETRY_SECS: f64 = 2.0;
 /// Write every document with unsaved changes to crash recovery, whatever the autosave timer and
 /// preference, and wait until the writes finished (see `Services::flush_autosaves`). `Ok` only when
 /// each of them is known to be on disk.
-fn save_for_recovery(app: &mut PhotocraftApp) -> Result<(), String> {
+pub(crate) fn save_for_recovery(app: &mut PhotocraftApp) -> Result<(), String> {
     let jobs: Vec<_> = app.session.documents().iter().filter(|d| d.is_dirty()).map(|d| (d.doc.clone(), d.revision, d.path.clone())).collect();
     if jobs.is_empty() {
         return Ok(());

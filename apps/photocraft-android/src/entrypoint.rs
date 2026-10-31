@@ -25,13 +25,18 @@ pub fn android_main(android_app: AndroidApp) {
         }
     };
 
-    let services = match super::services::create(data_root, saf) {
+    let lifecycle_events = super::lifecycle::LifecycleEvents::new();
+    let services = match super::services::create(data_root, saf, lifecycle_events.clone()) {
         Ok(services) => services,
         Err(error) => {
             log::error!("Could not initialize PhotoCraft Android storage: {error}");
             return;
         }
     };
+
+    // The waker lets the Activity's Java lifecycle callbacks request one more egui frame without
+    // blocking Android's UI thread.
+    super::lifecycle::install(android_app.create_waker(), lifecycle_events);
 
     let options = NativeOptions {
         renderer: Renderer::Wgpu,
@@ -47,6 +52,8 @@ pub fn android_main(android_app: AndroidApp) {
             Ok(Box::new(PhotocraftApp::new(Session::new(), services)))
         }),
     );
+
+    super::lifecycle::uninstall();
 
     if let Err(error) = result {
         log::error!("PhotoCraft Android runtime failed: {error}");
