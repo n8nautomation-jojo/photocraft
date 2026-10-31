@@ -6,6 +6,8 @@
 #[cfg(target_os = "android")]
 mod entrypoint;
 #[cfg(target_os = "android")]
+mod lifecycle;
+#[cfg(target_os = "android")]
 mod services;
 #[cfg(target_os = "android")]
 mod saf;
