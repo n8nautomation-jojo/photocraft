@@ -8,9 +8,10 @@ use std::{
     time::{Duration, Instant},
 };
 use jni::{
-    JavaVM,
-    objects::{Global, JObject, JString, JValue},
-    refs::Cast,
+    JValue,
+    vm::JavaVM,
+    objects::{JObject, JString},
+    refs::Global,
     sys::{jlong, jobject, jstring},
 };
 use photocraft_ui_egui::{
@@ -236,7 +237,7 @@ fn complete_result(request_id: u64, payload: &str) {
 /// Native callback for picker completion and provider-write completion.
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_ai_storyteller_photocraft_PhotoCraftActivity_nativeOnSafResult(
-    mut raw_env: jni::JNIEnv<'_>,
+    mut raw_env: jni::EnvUnowned<'_>,
     _activity: jobject,
     request_id: jlong,
     payload: jstring,
