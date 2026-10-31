@@ -11,7 +11,7 @@ pub(crate) const COMPACT_HEIGHT: f32 = 460.0;
 /// Whether the current content viewport should use the phone-first compact workspace.
 pub(crate) fn compact(ctx: &egui::Context) -> bool {
     let size = ctx.content_rect().size();
-    size.x.is_finite() && size.y.is_finite() && (size.x < COMPACT_WIDTH || size.y < COMPACT_HEIGHT)
+    size.x.is_finite() && size.y.is_finite() && size.x > 0.0 && size.y > 0.0 && (size.x < COMPACT_WIDTH || size.y < COMPACT_HEIGHT)
 }
 
 #[cfg(test)]
@@ -34,6 +34,12 @@ mod tests {
         assert!(compact_at(vec2(393.0, 852.0)));
         assert!(compact_at(vec2(852.0, 393.0)));
         assert!(compact_at(vec2(640.0, 900.0)));
+    }
+
+    #[test]
+    fn unknown_initial_viewport_does_not_force_compact_mode() {
+        let ctx = Context::default();
+        assert!(!compact(&ctx));
     }
 
     #[test]
