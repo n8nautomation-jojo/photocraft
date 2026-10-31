@@ -156,7 +156,16 @@ fn phone_panel_drawer_defaults_to_portrait_and_remembers_the_user_toggle() {
     );
     out.textures_delta.clear();
     assert!(!phone_panels_open(&landscape, true), "short landscape prioritizes the canvas");
-    assert!(!phone_panels_open(&portrait, false), "a hidden desktop dock starts closed");
+    let hidden_dock = egui::Context::default();
+    let mut out = hidden_dock.run_ui(
+        egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, vec2(393.0, 852.0))),
+            ..Default::default()
+        },
+        |_| {},
+    );
+    out.textures_delta.clear();
+    assert!(!phone_panels_open(&hidden_dock, false), "a hidden desktop dock starts closed");
 }
 
 #[test]
