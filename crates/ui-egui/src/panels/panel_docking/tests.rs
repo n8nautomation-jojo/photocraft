@@ -112,6 +112,72 @@ fn invalid_panel_requests_are_atomic_and_do_not_enter_a_custom_workspace() {
     }
 }
 
+#[test]
+fn compact_phone_layout_keeps_the_canvas_and_places_one_selected_panel_below_it() {
+    let closed = phone_layout(None, 210.0);
+    assert!(valid(&closed), "closed phone layout: {closed:?}");
+    assert_eq!(closed.panels(), vec![CANVAS.to_owned()]);
+
+    let open = phone_layout(Some("layers"), 210.0);
+    assert!(valid(&open), "open phone layout: {open:?}");
+    let mut panels = open.panels();
+    panels.sort();
+    assert_eq!(panels, vec![CANVAS.to_owned(), "layers".to_owned()]);
+    assert!(matches!(
+        open.root,
+        Some(Node::Split { axis: SplitAxis::Vertical, .. })
+    ));
+}
+
+#[test]
+fn phone_panel_drawer_defaults_to_portrait_and_remembers_the_user_toggle() {
+    let portrait = egui::Context::default();
+    let mut out = portrait.run_ui(
+        egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, vec2(393.0, 852.0))),
+            ..Default::default()
+        },
+        |_| {},
+    );
+    out.textures_delta.clear();
+    assert!(phone_panels_open(&portrait, true));
+    toggle_phone_panels(&portrait, true);
+    assert!(!phone_panels_open(&portrait, true));
+    toggle_phone_panels(&portrait, true);
+    assert!(phone_panels_open(&portrait, true));
+
+    let landscape = egui::Context::default();
+    let mut out = landscape.run_ui(
+        egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, vec2(852.0, 393.0))),
+            ..Default::default()
+        },
+        |_| {},
+    );
+    out.textures_delta.clear();
+    assert!(!phone_panels_open(&landscape, true), "short landscape prioritizes the canvas");
+    assert!(!phone_panels_open(&portrait, false), "a hidden desktop dock starts closed");
+}
+
+#[test]
+fn compact_portrait_uses_full_width_canvas_and_does_not_rewrite_desktop_workspace() {
+    let initial_workspace = app().ui.docking;
+    let mut h = harness(app(), vec2(393.0, 852.0));
+    assert_eq!(h.state().ui.docking, initial_workspace, "the phone presentation is ephemeral");
+    let bodies = last_bodies(&h.ctx);
+    let canvas = bodies.iter().find(|(id, _)| id == CANVAS).map(|(_, rect)| *rect).expect("phone canvas");
+    let layers = bodies.iter().find(|(id, _)| id == "layers").map(|(_, rect)| *rect).expect("default Layers drawer");
+    assert!(canvas.width() >= 380.0, "the canvas gets the full phone width: {canvas:?}");
+    assert!((canvas.width() - layers.width()).abs() < 1.0, "canvas and drawer share the full width");
+
+    toggle_phone_panels(&h.ctx, true);
+    h.run_steps(3);
+    let bodies = last_bodies(&h.ctx);
+    assert!(bodies.iter().any(|(id, _)| id == CANVAS));
+    assert!(!bodies.iter().any(|(id, _)| id == "layers"), "closing the drawer gives the room back to the canvas");
+    assert_eq!(h.state().ui.docking, initial_workspace, "toggling phone panels leaves desktop docking intact");
+}
+
 fn harness(app: PhotocraftApp, size: egui::Vec2) -> Harness<'static, PhotocraftApp> {
     let mut ready = false;
     let mut harness = Harness::builder().with_size(size).with_step_dt(1.0 / 60.0).build_ui_state(
