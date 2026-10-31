@@ -23,6 +23,8 @@ class PhotoCraftActivity : GameActivity() {
     companion object {
         private const val SAF_REQUEST_CODE = 0x5A31
         private const val BUFFER_BYTES = 64 * 1024
+        private const val LIFECYCLE_PAUSED = 1
+        private const val LIFECYCLE_RESUMED = 2
 
         init {
             System.loadLibrary("main")
@@ -33,6 +35,7 @@ class PhotoCraftActivity : GameActivity() {
     private var activeSafRequestId: Long? = null
 
     private external fun nativeOnSafResult(requestId: Long, payload: String)
+    private external fun nativeOnLifecycleEvent(event: Int)
 
     /**
      * Called by Rust on the Android UI thread. The callback is always delivered asynchronously
@@ -323,6 +326,20 @@ class PhotoCraftActivity : GameActivity() {
 
     private fun writeError(message: String): String =
         JSONObject().put("kind", "write").put("ok", false).put("message", message).toString()
+
+    /**
+     * Request a recovery snapshot before Android backgrounds this Activity. The callback only
+     * queues a Rust event and wakes the native loop; encoding and storage stay off this UI thread.
+     */
+    override fun onPause() {
+        nativeOnLifecycleEvent(LIFECYCLE_PAUSED)
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        nativeOnLifecycleEvent(LIFECYCLE_RESUMED)
+    }
 
     override fun onDestroy() {
         val requestId = activeSafRequestId
