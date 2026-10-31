@@ -6,7 +6,7 @@
 
 use photocraft_codecs::{ChannelLayout, EncodeOptions, Image};
 use photocraft_doc::Document;
-use crate::saf::SafBridge;
+use crate::{lifecycle::LifecycleEvents, saf::SafBridge};
 use photocraft_format::RecoveryStore;
 use photocraft_ui_egui::{
     ExportSettings, FileStamp, Recoverable, Services,
@@ -94,7 +94,7 @@ fn export_file(
 }
 
 /// Construct platform services after the GameActivity has supplied its private data directory.
-pub(super) fn create(internal_data_dir: PathBuf, saf: SafBridge) -> Result<Services, String> {
+pub(super) fn create(internal_data_dir: PathBuf, saf: SafBridge, lifecycle: LifecycleEvents) -> Result<Services, String> {
     let app_data = internal_data_dir.join("PhotoCraft");
     let recovery_dir = app_data.join("Recovery");
     let presets_dir = app_data.join("Presets");
@@ -148,6 +148,7 @@ pub(super) fn create(internal_data_dir: PathBuf, saf: SafBridge) -> Result<Servi
             let mut file = std::fs::OpenOptions::new().create(true).append(true).open(path).map_err(|error| error.to_string())?;
             file.write_all(text.as_bytes()).map_err(|error| error.to_string())
         })),
+        os_events: Some(lifecycle.os_events()),
         preset_store: Some(photocraft_engine::preset_store::open_dir_async(presets_dir)),
         ..recovery
     })
