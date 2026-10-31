@@ -96,11 +96,17 @@ fn detect_physical_memory() -> Option<u64> {
     String::from_utf8(out.stdout).ok()?.trim().parse().ok()
 }
 
-#[cfg(target_os = "linux")]
+/// Parse Linux/Android `MemTotal` without relying on a desktop memory API.
+#[cfg(any(target_os = "linux", target_os = "android", test))]
+fn memtotal_from_proc(info: &str) -> Option<u64> {
+    let kb: u64 = info.lines().find_map(|line| line.strip_prefix("MemTotal:"))?.trim().trim_end_matches("kB").trim().parse().ok()?;
+    kb.checked_mul(1024).filter(|bytes| *bytes > 0)
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn detect_physical_memory() -> Option<u64> {
     let info = std::fs::read_to_string("/proc/meminfo").ok()?;
-    let kb: u64 = info.lines().find_map(|l| l.strip_prefix("MemTotal:"))?.trim().trim_end_matches("kB").trim().parse().ok()?;
-    kb.checked_mul(1024)
+    memtotal_from_proc(&info)
 }
 
 #[cfg(target_os = "freebsd")]
@@ -114,7 +120,7 @@ pub(super) fn detect_physical_memory() -> Option<u64> {
     winsafe::GlobalMemoryStatusEx().map(|m| m.ullTotalPhys).ok().filter(|b| *b > 0)
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "freebsd", windows)))]
+#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "android", target_os = "freebsd", windows)))]
 fn detect_physical_memory() -> Option<u64> {
     None
 }
@@ -277,4 +283,23 @@ pub(super) fn drm_video_memory(drm: &std::path::Path, vendor: u32, device: u32) 
 #[cfg(not(any(target_os = "linux", windows)))]
 fn detect_video_memory(_vendor: u32, _device: u32) -> Option<u64> {
     None
+}
+
+
+#[cfg(test)]
+mod android_memory_tests {
+    use super::memtotal_from_proc;
+
+    #[test]
+    fn proc_meminfo_total_is_parsed_as_bytes() {
+        assert_eq!(memtotal_from_proc("MemTotal:       8192000 kB\nMemFree: 100 kB\n"), Some(8_388_608_000));
+    }
+
+    #[test]
+    fn proc_meminfo_requires_a_positive_valid_total() {
+        assert_eq!(memtotal_from_proc("MemFree: 100 kB\n"), None);
+        assert_eq!(memtotal_from_proc("MemTotal: invalid kB\n"), None);
+        assert_eq!(memtotal_from_proc("MemTotal: 0 kB\n"), None);
+        assert_eq!(memtotal_from_proc("MemTotal: 18446744073709551615 kB\n"), None);
+    }
 }
