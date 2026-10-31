@@ -47,7 +47,7 @@ editor, command system, and wgpu canvas:
   narrower than 720 points or shorter than 460 points uses the compact workspace, so portrait and
   short-landscape phones both adapt, including resizable windows.
 - The desktop vertical toolbar and narrow side dock are replaced by a horizontal touch tool shelf
-  with 48-point targets, a horizontally scrollable set of common tools, a searchable-by-name
+  with 48-point targets, a horizontally scrollable set of common tools, a name-labelled
   "More" menu for every non-hidden toolbar tool, a Panels toggle, zoom percentage and Fit action.
 - Panels are presented in a full-width bottom drawer. Its panel selector scrolls horizontally and
   can switch between Layers, Channels, Paths, Properties, Adjustments, Color, Swatches, Brushes,
