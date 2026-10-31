@@ -94,6 +94,8 @@ impl SafBridge {
     fn post_to_activity(&self, request_id: u64, method: &'static str, payload: String) {
         let app = self.inner.app.clone();
         app.run_on_java_main_thread(Box::new(move || {
+            // SAFETY: android-activity returns the live process JavaVM pointer associated with
+            // this AndroidApp; Android has one VM for the lifetime of the process.
             let vm = unsafe { JavaVM::from_raw(app.vm_as_ptr().cast()) };
             let call = vm.attach_current_thread(|env| -> jni::errors::Result<()> {
                 let activity_ptr = app.activity_as_ptr() as jobject;
@@ -253,6 +255,9 @@ fn complete_result(request_id: u64, payload: &str) {
 }
 
 /// Native callback for picker completion and provider-write completion.
+///
+/// SAFETY: the exported JNI name and signature exactly match the private native method declared
+/// by PhotoCraftActivity. The callback only borrows JNI references for the duration of the call.
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_ai_storyteller_photocraft_PhotoCraftActivity_nativeOnSafResult(
     mut raw_env: jni::EnvUnowned<'_>,
