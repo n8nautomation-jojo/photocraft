@@ -199,6 +199,9 @@ class PhotoCraftActivity : GameActivity() {
                 }
                 createdDirectories += importDirectory
                 val destination = File(importDirectory, name)
+                // Track the destination before opening the provider stream so a partial file is
+                // also removed if the provider fails midway through the copy.
+                created += destination
                 val input = contentResolver.openInputStream(uri) ?: throw IOException("provider returned no input stream")
                 input.use { source ->
                     destination.outputStream().buffered(BUFFER_BYTES).use { target ->
@@ -206,7 +209,6 @@ class PhotoCraftActivity : GameActivity() {
                         target.flush()
                     }
                 }
-                created += destination
                 files.put(
                     JSONObject()
                         .put("path", destination.absolutePath)
