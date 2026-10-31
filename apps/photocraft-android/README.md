@@ -49,6 +49,8 @@ editor, command system, and wgpu canvas:
 - The desktop vertical toolbar and narrow side dock are replaced by a horizontal touch tool shelf
   with 48-point targets, a horizontally scrollable set of common tools, a name-labelled
   "More" menu for every non-hidden toolbar tool, a Panels toggle, zoom percentage and Fit action.
+- The ten desktop top-level menus collapse into one 48-point Menu launcher on compact viewports;
+  each original menu and its nested commands remain available inside a vertically scrollable menu.
 - Panels are presented in a full-width bottom drawer. Its panel selector scrolls horizontally and
   can switch between Layers, Channels, Paths, Properties, Adjustments, Color, Swatches, Brushes,
   History, Actions, Navigator, Histogram, Info, Character, Paragraph, Gradients, Patterns and
