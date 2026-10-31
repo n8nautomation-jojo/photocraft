@@ -154,6 +154,8 @@ pub(crate) fn trim_reconstructible_caches(app: &mut PhotocraftApp) -> usize {
         + app.navigator_gpu.len()
         + app.navigator_plain.len()
         + app.thumbs.len()
+        + app.thumb_frames.len()
+        + app.thumb_documents.len()
         + app.snapshot_thumbs.len()
         + app.bounds_cache.len()
         + app.channel_views.len()
@@ -165,7 +167,8 @@ pub(crate) fn trim_reconstructible_caches(app: &mut PhotocraftApp) -> usize {
         + usize::from(app.info_sample.is_some())
         + usize::from(app.tone_hist.is_some())
         + usize::from(app.doc_hist.is_some())
-        + usize::from(app.doc_hist_preview.is_some());
+        + usize::from(app.doc_hist_preview.is_some())
+        + usize::from(app.hist_uncached.is_some());
 
     app.canvases.clear();
     app.navigator_textures.clear();
@@ -351,6 +354,23 @@ pub fn show_fallback(app: &mut PhotocraftApp, ctx: &egui::Context) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn memory_pressure_trim_drops_rebuildable_caches_without_touching_session_state() {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        app.bounds_cache.insert(1, (2, photocraft_geom::Rect::from_xywh(0, 0, 8, 8)));
+        app.proxy_uploaded = Some((photocraft_doc::DocId(9), 3));
+        app.info_sample = Some(((1, 2, 3, 4), [0.1, 0.2, 0.3, 0.4]));
+        let documents_before = app.session.documents().len();
+
+        let released = trim_reconstructible_caches(&mut app);
+
+        assert_eq!(released, 3, "counts the three seeded rebuildable cache entries");
+        assert!(app.bounds_cache.is_empty());
+        assert!(app.proxy_uploaded.is_none());
+        assert!(app.info_sample.is_none());
+        assert_eq!(app.session.documents().len(), documents_before, "the document session is untouched");
+    }
 
     #[test]
     fn system_info_copy_and_api_stay_english_in_czech_ui() {
