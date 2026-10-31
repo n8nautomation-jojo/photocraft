@@ -641,8 +641,8 @@ pub fn mobile_toolbar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                     });
                 let more = ui.add_sized(vec2(more_width, 48.0), egui::Button::new(tl!("More")));
                 let popup_viewport = ui.ctx().content_rect();
-                let popup_max_width = (popup_viewport.width() - 16.0).max(180.0);
-                let popup_max_height = (popup_viewport.height() - 16.0).max(96.0);
+                let popup_max_width = (popup_viewport.width() - 16.0).max(0.0);
+                let popup_max_height = (popup_viewport.height() - 16.0).max(0.0);
                 egui::Popup::menu(&more).show(|ui| {
                     ui.set_min_width(popup_max_width.min(240.0));
                     ui.set_max_width(popup_max_width);
