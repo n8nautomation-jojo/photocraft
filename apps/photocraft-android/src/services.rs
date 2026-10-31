@@ -1,9 +1,8 @@
 //! Android platform services backed by the app's private internal storage.
 //!
 //! Files in the app-private area are used for preferences, presets and crash recovery. User
-//! documents must be accessed through the Storage Access Framework; this module deliberately does
-//! not pretend that Android content URIs are ordinary filesystem paths. SAF dialogs are a later
-//! bridge and are not installed until that bridge can provide real read/write capabilities.
+//! User documents are accessed through the Storage Access Framework bridge. Content URIs remain
+//! separate from filesystem paths; selected data is staged in app-private working files.
 
 use photocraft_codecs::{ChannelLayout, EncodeOptions, Image};
 use photocraft_doc::Document;
@@ -89,7 +88,7 @@ fn export_file(
     })
     .map_err(|error| error.to_string())?;
     ctl.progress(0.99, "Writing to document provider");
-    saf.sync_to_provider_with_ctl(Path::new(path), ctl)?;
+    saf.sync_to_provider(Path::new(path))?;
     ctl.progress(1.0, "");
     Ok(result.warnings)
 }
