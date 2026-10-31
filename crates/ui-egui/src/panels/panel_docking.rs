@@ -575,7 +575,7 @@ fn show_phone(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     let area = area_id().with("phone");
     let mut selected = ctx
         .data(|data| data.get_temp::<String>(phone_panel_id()))
-        .filter(|id| PHONE_PANELS.iter().any(|(known, _)| *known == id))
+        .filter(|id| PHONE_PANELS.iter().any(|(known, _)| *known == id.as_str()))
         .unwrap_or_else(|| "layers".to_owned());
     let open = phone_panels_open(&ctx, app.ui.panels.dock);
 
@@ -592,7 +592,7 @@ fn show_phone(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                             for (id, label) in PHONE_PANELS {
                                 let response = ui.add_sized(
                                     egui::vec2(78.0, 48.0),
-                                    egui::Button::new(tl!(label)).selected(selected == *id),
+                                    egui::Button::new(tl!(label)).selected(selected.as_str() == *id),
                                 );
                                 if response.clicked() {
                                     selected = (*id).to_owned();
@@ -660,11 +660,9 @@ fn show_phone(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     open_window_drops(app, &ctx, std::mem::take(&mut output.window_files));
     let forwarded = std::mem::take(&mut output.forwarded_events);
     crate::shortcuts::handle_forwarded(app, &ctx, forwarded, output.forwarded_modifiers.unwrap_or_default());
-    for action in output.actions {
-        if let Err(error) = app.run("window.panel.layout", json!({"action": action})) {
-            app.ui.status = error;
-        }
-    }
+    // The phone split is ephemeral, so no DockArea action is allowed to mutate the
+    // desktop workspace saved in UiState.
+    let _ = output.actions;
     for (id, params) in commands {
         if let Err(error) = app.run(id, params) {
             app.ui.status = error;
