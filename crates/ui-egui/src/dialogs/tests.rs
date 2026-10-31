@@ -640,3 +640,29 @@ fn file_info_keeps_multiline_metadata_on_confirm_and_reopen() {
         assert_eq!(app.ui.dialog_mut(id).unwrap().fields[key], "First line\nSecond line");
     }
 }
+
+
+/// On a short phone viewport, dialogs stay inside the visible surface and leave their actions
+/// reachable while long forms scroll inside the body instead of pushing the footer off-screen.
+#[test]
+fn phone_dialog_fits_short_viewport_and_keeps_confirmation_controls_visible() {
+    use egui_kittest::kittest::Queryable;
+
+    let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+    app.run("file.new", json!({"width": 64, "height": 64})).unwrap();
+    let mut h = egui_kittest::Harness::builder()
+        .with_size(egui::vec2(393.0, 360.0))
+        .build_ui_state(|ui, app| show(app, ui.ctx()), app);
+    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+    let ctx = h.ctx.clone();
+    crate::menus::invoke(h.state_mut(), &ctx, "file.fileInfo", json!({})).unwrap();
+    h.run_steps(5);
+
+    let viewport = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(393.0, 360.0));
+    let frame = rects(&h.ctx)[0];
+    assert!(viewport.contains_rect(frame), "the complete phone dialog must stay on-screen: {frame:?}");
+
+    let actions = h.get_by_label("OK").rect().union(h.get_by_label("Cancel").rect());
+    assert!(frame.contains_rect(actions), "OK and Cancel remain inside the dialog footer: {actions:?}");
+    assert!(actions.top() > frame.top(), "the action row remains below the dialog header");
+}
