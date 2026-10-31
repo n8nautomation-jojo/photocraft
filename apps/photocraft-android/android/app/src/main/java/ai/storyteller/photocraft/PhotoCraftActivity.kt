@@ -63,6 +63,7 @@ class PhotoCraftActivity : GameActivity() {
             }
 
             activeSafRequestId = requestId
+            saveRequests[requestId] = kind == "save"
             try {
                 val title = request.optString("title")
                 startActivityForResult(
@@ -71,6 +72,7 @@ class PhotoCraftActivity : GameActivity() {
                 )
             } catch (error: Exception) {
                 activeSafRequestId = null
+                saveRequests.remove(requestId)
                 nativeOnSafResult(requestId, errorPayload("Could not open Android document picker: ${error.message}"))
             }
         }
@@ -120,6 +122,7 @@ class PhotoCraftActivity : GameActivity() {
         val requestId = activeSafRequestId
         activeSafRequestId = null
         if (requestId == null) return
+        val isSave = saveRequests.remove(requestId) == true
 
         if (resultCode != Activity.RESULT_OK || data == null) {
             nativeOnSafResult(requestId, JSONObject().put("kind", "cancel").toString())
@@ -146,7 +149,6 @@ class PhotoCraftActivity : GameActivity() {
             }
         }
 
-        val isSave = selectedUris.size == 1 && isSaveResult(data, requestId)
         safIo.execute {
             try {
                 val result = if (isSave) {
@@ -212,7 +214,6 @@ class PhotoCraftActivity : GameActivity() {
     }
 
     private fun makeSaveTarget(requestId: Long, uri: Uri): JSONObject {
-        saveRequests[requestId] = true
         val exports = File(filesDir, "PhotoCraft/SAF/Exports")
         if (!exports.exists() && !exports.mkdirs()) {
             throw IOException("could not create private export directory")
@@ -312,6 +313,7 @@ class PhotoCraftActivity : GameActivity() {
         val requestId = activeSafRequestId
         activeSafRequestId = null
         if (requestId != null) {
+            saveRequests.remove(requestId)
             nativeOnSafResult(requestId, JSONObject().put("kind", "cancel").toString())
         }
         super.onDestroy()
