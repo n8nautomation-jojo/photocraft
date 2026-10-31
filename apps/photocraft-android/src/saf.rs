@@ -132,12 +132,9 @@ impl SafBridge {
         // PhotoCraft may normalize a selected Save As extension (for example, ".PSD" to
         // ".psd"). Save targets are created in a unique directory, so a single grant with
         // the same parent unambiguously identifies the selected provider URI.
-        let Some(parent) = path.parent() else { return Ok(None) };
-        let mut matches = grants.iter().filter(|(old_path, _)| Path::new(old_path).parent() == Some(parent));
-        let Some((old_path, uri)) = matches.next() else { return Ok(None) };
-        if matches.next().is_some() {
-            return Err("multiple SAF document grants share the same working directory".into());
-        }
+        let Some((old_path, uri)) = unique_sibling_grant(&grants, path)? else {
+            return Ok(None);
+        };
         let old_path = old_path.clone();
         let uri = uri.clone();
         grants.remove(&old_path);
@@ -173,6 +170,22 @@ impl SafBridge {
             }
         }
     }
+}
+
+
+/// Find the sole grant in the same private working directory. Android Save As staging and each
+/// SAF import own a unique directory, making extension-only path normalization unambiguous.
+fn unique_sibling_grant<'a>(
+    grants: &'a HashMap<String, String>,
+    path: &Path,
+) -> Result<Option<(&'a String, &'a String)>, String> {
+    let Some(parent) = path.parent() else { return Ok(None) };
+    let mut matches = grants.iter().filter(|(old_path, _)| Path::new(old_path).parent() == Some(parent));
+    let Some(found) = matches.next() else { return Ok(None) };
+    if matches.next().is_some() {
+        return Err("multiple SAF document grants share the same working directory".into());
+    }
+    Ok(Some(found))
 }
 
 fn mime_for_extension(extension: &str) -> &'static str {
@@ -286,5 +299,33 @@ mod tests {
         assert_eq!(mime_for_extension("pcraft"), "application/vnd.photocraft.document");
         assert_eq!(mime_for_extension("png"), "image/png");
         assert_eq!(mime_for_extension("unknown"), "application/octet-stream");
+    }
+
+    #[test]
+    fn extension_normalization_only_reuses_a_unique_sibling_uri_grant() {
+        use std::{collections::HashMap, path::Path};
+
+        let grants = HashMap::from([
+            ("/private/SAF/Exports/one/Artwork.PSD".to_owned(), "content://provider/one".to_owned()),
+            ("/private/SAF/Imports/two/Scan.PNG".to_owned(), "content://provider/two".to_owned()),
+        ]);
+        let found = unique_sibling_grant(&grants, Path::new("/private/SAF/Exports/one/Artwork.psd"))
+            .expect("one URI grant in the unique directory")
+            .expect("sibling grant");
+        assert_eq!(found.1, "content://provider/one");
+        assert!(unique_sibling_grant(&grants, Path::new("/private/SAF/Exports/three/New.psd"))
+            .expect("no grant")
+            .is_none());
+    }
+
+    #[test]
+    fn extension_normalization_rejects_ambiguous_shared_directories() {
+        use std::{collections::HashMap, path::Path};
+
+        let grants = HashMap::from([
+            ("/private/SAF/Imports/shared/Artwork.PSD".to_owned(), "content://provider/one".to_owned()),
+            ("/private/SAF/Imports/shared/Artwork 2.PSD".to_owned(), "content://provider/two".to_owned()),
+        ]);
+        assert!(unique_sibling_grant(&grants, Path::new("/private/SAF/Imports/shared/Artwork.psd")).is_err());
     }
 }
