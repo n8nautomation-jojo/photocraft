@@ -189,6 +189,9 @@ pub(crate) fn trim_reconstructible_caches(app: &mut PhotocraftApp) -> usize {
     app.doc_hist_preview = None;
     app.hist_uncached = None;
     app.kept.clear();
+    if let Some(gpu) = app.gpu.as_ref() {
+        gpu.trim_caches();
+    }
     released
 }
 
