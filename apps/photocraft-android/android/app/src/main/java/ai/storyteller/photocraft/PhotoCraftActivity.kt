@@ -5,7 +5,13 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.view.View
 import android.webkit.MimeTypeMap
+import android.widget.FrameLayout
+import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.androidgamesdk.GameActivity
 import org.json.JSONArray
 import org.json.JSONObject
@@ -34,6 +40,63 @@ class PhotoCraftActivity : GameActivity() {
 
     private val safIo = Executors.newSingleThreadExecutor()
     private var activeSafRequestId: Long? = null
+
+    private data class SurfaceMargins(val left: Int, val top: Int, val right: Int, val bottom: Int)
+
+    // The native surface is inset rather than drawing beneath system UI. GameActivity forwards
+    // the same WindowInsets to native code, so changing these margins also updates its content rect.
+    private var baseSurfaceMargins: SurfaceMargins? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        // Set edge-to-edge before GameActivity creates and measures its native SurfaceView.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        super.onCreate(savedInstanceState)
+
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
+
+        // GameActivity installs itself as the SurfaceView's insets listener during super.onCreate.
+        // Request a fresh dispatch now that edge-to-edge is enabled.
+        mSurfaceView?.let { surface -> ViewCompat.requestApplyInsets(surface) }
+    }
+
+    override fun onApplyWindowInsets(v: View, insets: WindowInsetsCompat): WindowInsetsCompat {
+        val safe = insets.getInsets(
+            WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+        )
+        applySafeSurfaceInsets(v, safe)
+        // Preserve GameActivity's IME, native-window-insets, and content-rect notifications.
+        return super.onApplyWindowInsets(v, insets)
+    }
+
+    private fun applySafeSurfaceInsets(view: View, safe: Insets) {
+        val params = view.layoutParams as? FrameLayout.LayoutParams ?: return
+        val base = baseSurfaceMargins ?: SurfaceMargins(
+            params.leftMargin, params.topMargin, params.rightMargin, params.bottomMargin
+        ).also { baseSurfaceMargins = it }
+
+        val left = base.left + safe.left
+        val top = base.top + safe.top
+        val right = base.right + safe.right
+        val bottom = base.bottom + safe.bottom
+        if (
+            params.leftMargin == left && params.topMargin == top &&
+            params.rightMargin == right && params.bottomMargin == bottom
+        ) {
+            return
+        }
+
+        params.setMargins(left, top, right, bottom)
+        view.layoutParams = params
+    }
 
     private external fun nativeOnSafResult(requestId: Long, payload: String)
     private external fun nativeOnLifecycleEvent(event: Int)

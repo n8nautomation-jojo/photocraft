@@ -63,6 +63,21 @@ editor, command system, and wgpu canvas:
   docking behavior. The responsive breakpoints, phone drawer, and compact menu launcher have unit/UI tests in the
   repository, but those tests have not yet been executed because the available environment lacks
   the Rust toolchain.
+- Android edge-to-edge is handled at the GameActivity SurfaceView boundary. Kotlin reads
+  WindowInsets for system bars and display cutouts and applies them as dynamic surface margins, so
+  egui receives a content surface that excludes the status/camera area and bottom navigation area.
+  Insets are recalculated on rotation and system UI changes; no fixed status-bar or navigation-bar
+  pixel heights are hard-coded. GameActivity's own IME/native inset callbacks remain active.
+- The Activity no longer locks the device to landscape. Android can deliver portrait and landscape
+  sizes, and the egui compact breakpoint selects the layout from the actual safe content viewport.
+- Modal dialogs on compact viewports discard desktop fixed/resizable dimensions, clamp their width
+  to the safe viewport, and let long bodies scroll vertically while keeping the title and standard
+  confirmation row outside the scroll area. Dialogs whose contents fit remain content-sized without
+  an unnecessary scroll gesture.
+- The phone Menu and More tool popups size their maximum width and height from the current safe
+  viewport. Long top-level and nested menu lists use vertical ScrollAreas, so the remaining entries
+  can be reached with a finger swipe. The phone menu also lazily builds its document-dependent
+  command state only while open, matching the desktop menu's performance behaviour.
 
 The folder picker and Android clipboard are not connected yet. The SAF and lifecycle bridges have
 not been compiled or tested on a device. Provider permission policies differ, so an unavailable
@@ -117,6 +132,11 @@ ignored by Git. They must remain local build artifacts.
    device-loss handling plus process-death/force-stop and app-switching tests.
 5. Measure native memory with a 12 MP image and 10 layers on a real Android device; validate the
    configured GPU budget against actual device RAM.
-6. Validate the compact toolbar, panel drawer and touch targets on real phones in portrait and
-   landscape, then verify mouse primary/secondary, hover, stylus, keyboard shortcuts, Space+drag
-   and wheel input on both phones and tablets. Tune the tablet breakpoints from those measurements.
+6. Verify system-bar, gesture-navigation, three-button-navigation and display-cutout insets on
+   real phones in portrait and landscape, including rotation while a dialog is open.
+7. Validate phone dialogs, the top-level/nested menu, and the More tool picker with touch swipes
+   on short and tall screens; confirm all action rows remain reachable and every popup stays within
+   the safe viewport.
+8. Validate the compact toolbar, panel drawer and touch targets on real phones, then verify mouse
+   primary/secondary, hover, stylus, keyboard shortcuts, Space+drag and wheel input on phones and
+   tablets. Tune the tablet breakpoints from those measurements.

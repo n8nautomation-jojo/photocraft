@@ -17,7 +17,7 @@
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density|layoutDirection"
             android:exported="true"
             android:resizeableActivity="true"
-            android:screenOrientation="sensorLandscape"
+            android:screenOrientation="unspecified"
             android:windowSoftInputMode="adjustResize">
 
             <intent-filter>

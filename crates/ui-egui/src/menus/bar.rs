@@ -216,28 +216,59 @@ fn switch_on_hover(ctx: &egui::Context, buttons: &[egui::Response]) {
 /// Single-entry menu launcher for compact viewports. It keeps every existing command and nested
 /// submenu, while avoiding ten top-level titles competing for a phone's title-bar width.
 pub fn mobile_menu_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) -> f32 {
-    let items = menu_items(app);
+    // Like the desktop menu, build the document-dependent menu tree only while the popup is open.
+    // Menu enabled/checked state can be expensive on documents with many layers.
+    let kept = std::cell::Cell::new(app.menu_cache.take());
+    let built: std::cell::OnceCell<ItemCache> = std::cell::OnceCell::new();
+    let app_ref: &PhotocraftApp = app;
     let mut clicked: Option<String> = None;
     let mut nav = crate::menu_nav::Nav::load(ui.ctx());
+    let viewport = ui.ctx().content_rect();
+    let max_width = (viewport.width() - 16.0).max(0.0);
+    let min_width = max_width.min(240.0);
+    let max_height = (viewport.height() - 16.0).max(0.0);
+
     let response = ui.add_sized(egui::vec2(72.0, 48.0), egui::Button::new(crate::i18n::t("Menu")));
     egui::Popup::menu(&response).show(|ui| {
-        ui.set_min_width(240.0);
-        egui::ScrollArea::vertical().max_height(520.0).show(ui, |ui| {
-            for top in TOP_MENUS {
-                let mine: Vec<&MenuItem> = items.iter().filter(|item| item.path.first().map(String::as_str) == Some(top)).collect();
-                ui.menu_button(crate::i18n::t(top), |ui| {
-                    ui.set_min_width(240.0);
-                    if top == "Help" {
-                        help_search(ui, &items, false, &mut clicked, &mut nav);
-                        render_level_rows(ui, &mine, 1, &mut clicked, &mut nav);
-                    } else {
-                        render_level(ui, &mine, 1, &mut clicked, &mut nav);
-                    }
-                });
-            }
-        });
+        ui.set_min_width(min_width);
+        ui.set_max_width(max_width);
+        egui::ScrollArea::vertical()
+            .id_salt("phone-top-menu-list")
+            .auto_shrink([false, true])
+            .max_height(max_height)
+            .show(ui, |ui| {
+                let items = &built
+                    .get_or_init(|| {
+                        let state = crate::native_menu::state_hash(app_ref, None);
+                        let input = crate::native_menu::had_input(ui.ctx());
+                        let items = kept.take().and_then(|cache| cache.reuse(state, input)).unwrap_or_else(|| menu_items(app_ref));
+                        ItemCache { state, items }
+                    })
+                    .items;
+
+                for top in TOP_MENUS {
+                    let mine: Vec<&MenuItem> = items.iter().filter(|item| item.path.first().map(String::as_str) == Some(top)).collect();
+                    ui.menu_button(crate::i18n::t(top), |ui| {
+                        ui.set_min_width(min_width);
+                        ui.set_max_width(max_width);
+                        egui::ScrollArea::vertical()
+                            .id_salt(("phone-menu-submenu", top))
+                            .auto_shrink([false, true])
+                            .max_height(max_height)
+                            .show(ui, |ui| {
+                                if top == "Help" {
+                                    help_search(ui, items, false, &mut clicked, &mut nav);
+                                    render_level_rows(ui, &mine, 1, &mut clicked, &mut nav);
+                                } else {
+                                    render_level(ui, &mine, 1, &mut clicked, &mut nav);
+                                }
+                            });
+                    });
+                }
+            });
     });
     nav.store(ui.ctx());
+    app.menu_cache = built.into_inner();
     if let Some(id) = clicked {
         let ctx = ui.ctx().clone();
         if let Err(error) = invoke(app, &ctx, &id, json!({})) {
