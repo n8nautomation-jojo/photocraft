@@ -5041,6 +5041,7 @@ name = "photocraft-android"
 version = "0.18.0"
 dependencies = [
  "eframe",
+ "jni",
  "log",
  "photocraft-codecs",
  "photocraft-doc",
@@ -5049,6 +5050,7 @@ dependencies = [
  "photocraft-io",
  "photocraft-raster",
  "photocraft-ui-egui",
+ "serde_json",
  "winit",
 ]
 [[package]]

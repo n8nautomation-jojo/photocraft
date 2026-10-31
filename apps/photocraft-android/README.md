@@ -20,11 +20,20 @@ not included in the Android dependency target.
 This RAM detection is not the requested global 40% tile-memory manager or reconstructible-tile LRU;
 those remain separate engineering gates.
 
-This is still a bootstrap, not a finished Android port. Android Storage Access Framework (SAF)
-Open/Save dialogs and Android clipboard are not connected yet, so users cannot currently browse
-arbitrary documents from inside the editor. The app deliberately does not pretend that a SAF
-content URI is a normal filesystem path. Lifecycle-specific pause/low-memory recovery handling,
-tablet/phone layout adaptation and device validation remain open tasks.
+The Android host now has a first SAF Open/Save bridge:
+- Open supports one or multiple documents through ACTION_OPEN_DOCUMENT.
+- Selected documents are streamed into persistent app-private working files, avoiding whole-file
+  buffering and preserving the source document.
+- Persistable URI grants are recorded in app-private storage, so Save can stream changes back to
+  the selected document provider after the local atomic save succeeds.
+- Save As uses ACTION_CREATE_DOCUMENT and writes through ContentResolver on a background worker.
+- Content URIs are never passed to PhotoCraft as if they were ordinary filesystem paths.
+
+The folder picker and Android clipboard are not connected yet. The SAF code is a first integration
+slice and has not been compiled or tested against real document providers. Provider permission
+policies differ, so an unavailable persistent grant or failed provider write is reported as a
+save error rather than silently marking the document saved. Lifecycle-specific pause/low-memory
+recovery handling, tablet/phone layout adaptation and device validation remain open tasks.
 
 ## Toolchain
 
@@ -66,9 +75,9 @@ ignored by Git. They must remain local build artifacts.
 
 1. Compile the Android package and resolve every actual target-specific compile/link error without
    disabling editor crates or codecs. This target has not yet been built in a real Android toolchain.
-2. Add a SAF bridge for Open/Save and verify a PNG can be opened and saved through Android document
-   providers without copying or corrupting user files.
-3. Add the Android clipboard bridge and test text, pixel and image clipboard round trips.
+2. Compile and test SAF Open/Save against Android's system provider and at least one cloud-backed
+   document provider, including cancellation, multi-select, persisted grants and write failures.
+3. Add the Android folder picker and clipboard bridge and test image/text clipboard round trips.
 4. Wire pause, stop, low-memory and device-loss lifecycle signals to recovery flushing, and test
    force-stop/process death and app switching.
 5. Measure native memory with a 12 MP image and 10 layers on a real Android device; validate the
