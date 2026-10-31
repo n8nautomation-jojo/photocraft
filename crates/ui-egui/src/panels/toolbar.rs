@@ -649,7 +649,7 @@ pub fn mobile_toolbar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                                     for tool in slot {
                                         let selected = app.ui.tool == tool;
                                         let response = ui.add_sized(
-                                            vec2(108.0, 42.0),
+                                            vec2(108.0, 48.0),
                                             egui::Button::new(tl!(tool.label())).selected(selected),
                                         );
                                         if response.clicked() {
