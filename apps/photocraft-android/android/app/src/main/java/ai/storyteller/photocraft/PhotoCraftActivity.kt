@@ -152,7 +152,7 @@ class PhotoCraftActivity : GameActivity() {
         safIo.execute {
             try {
                 val result = if (isSave) {
-                    makeSaveTarget(requestId, selectedUris.single())
+                    makeSaveTarget(selectedUris.single())
                 } else {
                     makeOpenResult(selectedUris)
                 }
@@ -213,13 +213,17 @@ class PhotoCraftActivity : GameActivity() {
         return JSONObject().put("kind", "open").put("files", files)
     }
 
-    private fun makeSaveTarget(requestId: Long, uri: Uri): JSONObject {
+    private fun makeSaveTarget(uri: Uri): JSONObject {
         val exports = File(filesDir, "PhotoCraft/SAF/Exports")
         if (!exports.exists() && !exports.mkdirs()) {
             throw IOException("could not create private export directory")
         }
         val name = safeFileName(displayName(uri) ?: uri.lastPathSegment ?: "PhotoCraft document")
-        val stagingFile = File(exports, "${UUID.randomUUID()}_$name")
+        val uniqueDirectory = File(exports, UUID.randomUUID().toString())
+        if (!uniqueDirectory.mkdirs()) {
+            throw IOException("could not create a unique SAF save directory")
+        }
+        val stagingFile = File(uniqueDirectory, name)
         return JSONObject()
             .put("kind", "save")
             .put("path", stagingFile.absolutePath)
@@ -316,6 +320,7 @@ class PhotoCraftActivity : GameActivity() {
             saveRequests.remove(requestId)
             nativeOnSafResult(requestId, JSONObject().put("kind", "cancel").toString())
         }
+        safIo.shutdown()
         super.onDestroy()
     }
 }
