@@ -651,7 +651,7 @@ fn show_phone(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                 craft_ui::docking::PanelLimits { min: egui::vec2(220.0, 80.0), ..Default::default() }
             }
         },
-        &mut PanelContent { app, collapsed: &collapsed, fillers: &fillers, card: &card, strip, commands: &mut commands },
+        &mut PanelContent { app, collapsed: &collapsed, fillers: &fillers, card: &card, strip, commands: &mut commands, phone: true },
     );
     if let Some(error) = output.error.take() {
         app.ui.status = error.to_string();
@@ -760,7 +760,7 @@ pub(crate) fn show(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                 craft_ui::docking::PanelLimits { min: egui::vec2(220.0, height), ..Default::default() }
             }
         },
-        &mut PanelContent { app, collapsed: &collapsed, fillers: &fillers, card: &card, strip, commands: &mut commands },
+        &mut PanelContent { app, collapsed: &collapsed, fillers: &fillers, card: &card, strip, commands: &mut commands, phone: false },
     );
     if let Some(error) = output.error.take() {
         app.ui.status = error.to_string();
@@ -1326,6 +1326,8 @@ struct PanelContent<'a> {
     /// The tab strip's height, which the native groups' heights include.
     strip: f32,
     commands: &'a mut Vec<(&'static str, Value)>,
+    /// The phone drawer is ephemeral: hide docking commands that would mutate the desktop layout.
+    phone: bool,
 }
 
 fn panel_menu(app: &mut PhotocraftApp, ui: &mut egui::Ui, panel: &str) {
@@ -1395,9 +1397,12 @@ impl craft_ui::docking::DockContent<String> for PanelContent<'_> {
         !self.card.contains(id)
     }
     fn group_header_width(&self, _panels: &[String], _active: &String, _floating: bool, _strip_width: f32) -> f32 {
-        28.0
+        if self.phone { 0.0 } else { 28.0 }
     }
     fn group_header(&mut self, ui: &mut egui::Ui, panels: &[String], active: &String, floating: bool) {
+        if self.phone {
+            return;
+        }
         let collapsed = panels.iter().all(|id| self.collapsed.contains(id));
         let locked = self.app.session.prefs().workspace_locked;
         let resp = crate::icons::button(ui, "ellipsis", ui.available_height().min(28.0), false, tl!("Panel menu"));
